@@ -2,7 +2,7 @@
 "use client"
 
 import React from 'react';
-import { Award, Star, PenSquare, Calendar, Building, ShieldCheck, Seal } from 'lucide-react';
+import { Award, Star, PenSquare, Calendar, Building, ShieldCheck, Medal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CertificateTemplate } from '@/lib/types';
 import { certificateTemplates } from '@/lib/data';
@@ -122,7 +122,7 @@ export default function CertificatePreview({ templateId, fields }: CertificatePr
                             <p className={cn("text-xs", theme.text)}>Event Issuer</p>
                         </div>
                         <div className={cn("w-1/3", theme.seal)}>
-                            <Seal className="w-12 h-12 mx-auto" />
+                            <Medal className="w-12 h-12 mx-auto" />
                         </div>
                         <div className="flex flex-col items-center gap-1 w-1/3">
                             <p className={cn("border-b w-full text-center pb-1 font-semibold", theme.border)}>
@@ -147,4 +147,3 @@ export default function CertificatePreview({ templateId, fields }: CertificatePr
     </div>
   );
 }
-
