@@ -5,6 +5,7 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { Loader2 } from 'lucide-react';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -110,6 +111,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       userError: userAuthState.userError,
     };
   }, [firebaseApp, firestore, auth, userAuthState]);
+
+  if (contextValue.isUserLoading) {
+    return (
+        <div className="flex h-screen w-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
+  
+  if (contextValue.userError) {
+      return (
+          <div className="flex h-screen w-screen items-center justify-center text-red-500">
+              <p>Authentication Error: {contextValue.userError.message}</p>
+          </div>
+      );
+  }
 
   return (
     <FirebaseContext.Provider value={contextValue}>
