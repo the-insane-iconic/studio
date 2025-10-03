@@ -238,7 +238,7 @@ export default function CertificatesView() {
                             <p><strong>Event:</strong> {selectedEvent?.title || 'N/A'}</p>
                             <p><strong>Participants:</strong> {isLoadingParticipants ? <Loader2 className="h-4 w-4 animate-spin inline-flex"/> : (participantsForEvent?.length ?? 0)}</p>
                             <p><strong>Template:</strong> {certificateTemplates.find(t => t.id === formData.templateId)?.name || 'N/A'}</p>
-                            <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.join(', ') || 'N/A'}</p>
+                            <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ') || 'N/A'}</p>
                         </div>
                         <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
                             Generate {(participantsForEvent?.length ?? 0)} Certificates
@@ -287,3 +287,5 @@ export default function CertificatesView() {
     </Card>
   );
 }
+
+    
