@@ -59,15 +59,18 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
         
         try {
             await runTransaction(firestore, async (transaction) => {
-                const participantsCollection = collection(firestore, 'participants');
-                const newParticipantRef = doc(participantsCollection);
-                
-                transaction.set(newParticipantRef, participantData);
-
+                // ALL READS MUST COME BEFORE ALL WRITES
                 const eventDoc = await transaction.get(eventRef);
                 if (!eventDoc.exists()) {
                     throw new Error("Event does not exist!");
                 }
+
+                // NOW WE CAN DO THE WRITES
+                const participantsCollection = collection(firestore, 'participants');
+                const newParticipantRef = doc(participantsCollection);
+                
+                transaction.set(newParticipantRef, participantData);
+                
                 const newCount = (eventDoc.data().participantCount || 0) + 1;
                 transaction.update(eventRef, { participantCount: newCount });
             });
@@ -267,5 +270,7 @@ export default function EventPage() {
         </div>
     );
 }
+
+    
 
     
