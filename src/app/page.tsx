@@ -7,6 +7,7 @@ import CertificatesView from '@/components/certificates-view';
 import ParticipantsView from '@/components/participants-view';
 import EventsView from '@/components/events-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Award, Users, Calendar } from 'lucide-react';
 
 export default function Home() {
