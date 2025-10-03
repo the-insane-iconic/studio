@@ -35,28 +35,30 @@ const sendCertificateEmailFlow = ai.defineFlow(
   async (input) => {
     console.log('Starting email flow for:', input.recipientEmail);
 
-    // IMPORTANT: CONFIGURE YOUR EMAIL TRANSPORT HERE
-    // You must replace the following with your actual email service credentials.
-    // It's highly recommended to use environment variables for security.
-    // Example for Gmail with an "App Password":
-    // const transporter = nodemailer.createTransport({
-    //   host: 'smtp.gmail.com',
-    //   port: 465,
-    //   secure: true, // use SSL
-    //   auth: {
-    //     user: process.env.EMAIL_USER, // Your Gmail address
-    //     pass: process.env.EMAIL_PASS, // Your Gmail App Password
-    //   },
-    // });
-    
-    // For this example, we'll use a "mock" transporter that doesn't actually send emails
-    // but lets us verify the logic. Replace this with a real transporter.
+    // This checks if the required environment variables for email are set.
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        const errorMessage = "Email service is not configured. Please set EMAIL_USER and EMAIL_PASS in your .env file.";
+        console.error(errorMessage);
+        return {
+            success: false,
+            message: errorMessage,
+        };
+    }
+
+    // This transporter is configured for Gmail.
+    // It securely uses environment variables for your credentials.
     const transporter = nodemailer.createTransport({
-        jsonTransport: true // This captures the email content without sending it
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true, // use SSL
+      auth: {
+        user: process.env.EMAIL_USER, // Your Gmail address
+        pass: process.env.EMAIL_PASS, // Your Gmail "App Password"
+      },
     });
 
     const mailOptions = {
-      from: `"EventEye Platform" <no-reply@eventeye.com>`,
+      from: `"EventEye Platform" <${process.env.EMAIL_USER}>`,
       to: input.recipientEmail,
       subject: `Your Certificate for ${input.eventName} is Here!`,
       html: `
@@ -76,13 +78,11 @@ const sendCertificateEmailFlow = ai.defineFlow(
 
     try {
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email preparation successful. Message data:', (info as any).message);
+      console.log('Email sent successfully. Message ID:', info.messageId);
       
-      // In a real scenario, info.messageId would confirm sending.
-      // With jsonTransport, info.message contains the email data.
       return {
         success: true,
-        message: `Email prepared for ${input.recipientEmail}. In a real setup, this would be sent.`,
+        message: `Email successfully sent to ${input.recipientEmail}.`,
       };
     } catch (error: any) {
       console.error('Failed to send email:', error);
