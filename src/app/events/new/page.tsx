@@ -65,18 +65,18 @@ function CreateEventForm() {
     return (
         <Card className="max-w-2xl mx-auto">
             <CardHeader>
-                <CardTitle>Event Details</CardTitle>
-                <CardDescription>Fill in the details for your new event.</CardDescription>
+                <CardTitle>Create a New Event</CardTitle>
+                <CardDescription>Fill in the details for your new event. Once created, you can manage participants and issue certificates.</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit} className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="title">Title</Label>
-                        <Input id="title" name="title" required />
+                        <Label htmlFor="title">Event Title</Label>
+                        <Input id="title" name="title" placeholder="e.g., 'Web3 & Blockchain Summit 2024'" required />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" name="description" />
+                        <Textarea id="description" name="description" placeholder="A brief summary of what the event is about." />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="grid gap-2">
@@ -98,8 +98,8 @@ function CreateEventForm() {
                             </Select>
                         </div>
                     </div>
-                    <div className="flex justify-end gap-4">
-                        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+                    <div className="flex justify-end gap-4 mt-4">
+                        <Button type="button" variant="ghost" onClick={() => router.back()} disabled={isSubmitting}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={isSubmitting}>

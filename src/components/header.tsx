@@ -35,10 +35,10 @@ export default function Header() {
             <div className="bg-primary p-2 rounded-lg">
                  <Award className="h-6 w-6 text-primary-foreground" />
             </div>
-          <span className="font-bold inline-block">EventChain<br/><span className="text-xs font-normal text-muted-foreground -mt-2 block">CERTIFICATE HUB</span></span>
+          <span className="font-bold inline-block font-headline">EventChain<span className="text-primary">.</span>Pro</span>
         </Link>
         
-        <nav className="flex items-center space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
           {navLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={label}
@@ -55,7 +55,7 @@ export default function Header() {
         </nav>
 
         <div className="flex flex-1 items-center justify-end space-x-4">
-          <Button onClick={() => router.push('/events/new')}>
+          <Button onClick={() => router.push('/events/new')} className="hidden sm:inline-flex">
             + Create Event
           </Button>
           <DropdownMenu>
