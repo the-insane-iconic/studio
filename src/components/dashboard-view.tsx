@@ -19,7 +19,7 @@ const categoryColors: {[key: string]: string} = {
 };
 
 
-export default function DashboardView({ setActiveView }: { setActiveView: (view: any) => void }) {
+export default function DashboardView() {
   const firestore = useFirestore();
 
   const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
