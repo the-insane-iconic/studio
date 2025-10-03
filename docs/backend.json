@@ -6,11 +6,7 @@
       "type": "object",
       "description": "Represents an event in the EventChain system.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the event entity."
-        },
-        "name": {
+        "title": {
           "type": "string",
           "description": "Name of the event."
         },
@@ -18,98 +14,71 @@
           "type": "string",
           "description": "Detailed description of the event."
         },
-        "startDate": {
+        "date": {
           "type": "string",
-          "description": "Date and time when the event starts.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "Date and time when the event ends.",
-          "format": "date-time"
+          "description": "Date of the event.",
+          "format": "date"
         },
         "category": {
           "type": "string",
-          "description": "Category of the event (e.g., Technology, Business, Education)."
+          "description": "Category of the event (e.g., Tech, Business, Education, Art)."
+        },
+        "participantCount": {
+            "type": "number",
+            "description": "The number of participants registered for the event."
         }
       },
       "required": [
-        "id",
-        "name",
+        "title",
         "description",
-        "startDate",
-        "endDate",
-        "category"
+        "date",
+        "category",
+        "participantCount"
       ]
     },
-    "Registration": {
+    "Participant": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Registration",
+      "title": "Participant",
       "type": "object",
-      "description": "Represents a user's registration for an event.",
+      "description": "Represents a user's registration for an event, including certificate status.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the registration entity."
-        },
-        "eventId": {
-          "type": "string",
-          "description": "Reference to Event. (Relationship: Event 1:N Registration)"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Registration)"
-        },
-        "registrationDate": {
-          "type": "string",
-          "description": "Date and time when the user registered.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "eventId",
-        "userId",
-        "registrationDate"
-      ]
-    },
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user in the EventChain system.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user entity."
-        },
         "name": {
           "type": "string",
-          "description": "Name of the user."
+          "description": "Name of the participant."
         },
         "email": {
           "type": "string",
-          "description": "Email address of the user.",
+          "description": "Email address of the participant.",
           "format": "email"
         },
         "phone": {
           "type": "string",
-          "description": "Phone number of the user."
+          "description": "Phone number of the participant."
         },
         "organization": {
           "type": "string",
-          "description": "Organization the user belongs to."
+          "description": "Organization the participant belongs to."
         },
         "jobTitle": {
           "type": "string",
-          "description": "Job title or role of the user."
+          "description": "Job title or role of the participant."
+        },
+        "eventId": {
+          "type": "string",
+          "description": "Reference to the Event this registration is for."
+        },
+        "certificateStatus": {
+          "type": "string",
+          "description": "Status of the certificate for this participant.",
+          "enum": ["Not Sent", "Sent", "Failed"]
         }
       },
       "required": [
-        "id",
         "name",
         "email",
-        "phone"
+        "phone",
+        "eventId",
+        "certificateStatus"
       ]
     },
     "Certificate": {
@@ -215,7 +184,7 @@
         "definition": {
           "entityName": "Event",
           "schema": {
-            "$ref": "#/backend/entities/Event"
+            "$ref": "#/entities/Event"
           },
           "description": "Stores event details. Events are accessible at the root level to enable easy listing. ",
           "params": [
@@ -227,39 +196,19 @@
         }
       },
       {
-        "path": "/users/{userId}",
+        "path": "/participants/{participantId}",
         "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. This collection is for user-related information and security.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/registrations/{registrationId}",
-        "definition": {
-          "entityName": "Registration",
-          "schema": {
-            "$ref": "#/backend/entities/Registration"
-          },
-          "description": "Stores user registrations for events. Path-based ownership ensures only the user can access their registrations.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user."
+            "entityName": "Participant",
+            "schema": {
+                "$ref": "#/entities/Participant"
             },
-            {
-              "name": "registrationId",
-              "description": "Unique identifier for the registration."
-            }
-          ]
+            "description": "Stores participant registration and certificate status information for all events.",
+            "params": [
+                {
+                    "name": "participantId",
+                    "description": "Unique identifier for the participant entry."
+                }
+            ]
         }
       },
       {
@@ -267,7 +216,7 @@
         "definition": {
           "entityName": "Certificate",
           "schema": {
-            "$ref": "#/backend/entities/Certificate"
+            "$ref": "#/entities/Certificate"
           },
           "description": "Stores certificate data. The certificateId is stored at the root level to be easily queriable.",
           "params": [
@@ -283,7 +232,7 @@
         "definition": {
           "entityName": "CertificateTemplate",
           "schema": {
-            "$ref": "#/backend/entities/CertificateTemplate"
+            "$ref": "#/entities/CertificateTemplate"
           },
           "description": "Stores certificate template designs.",
           "params": [
@@ -294,7 +243,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the EventChain Pro application. It leverages denormalization to avoid hierarchical authorization dependencies and structural segregation to maintain a homogeneous security posture within collections. The structure also incorporates access modeling based on path-based ownership and membership maps where necessary.\n\n**Authorization Independence:**\n\n*   Authorization independence is achieved by denormalizing authorization context data directly into subcollections where access control is required. For instance, the `certificates` subcollection under each event denormalizes the event ID and user ID making rule creation simple and efficient.\n\n**QAPs (Rules are not Filters):**\n\n*   The structure supports secure list operations by segregating data based on access requirements. For example, events are stored at the root level, allowing easy listing with rules that can control which events are visible based on user roles. Access to certificates are controlled via the user's ID so that they can only access their own certificates.\n\n**Access Modeling:**\n\n*   **Private Data:** User-owned data, such as registrations, are stored under `/users/{userId}/registrations/{registrationId}`, enforcing path-based ownership.\n*   **Collaborative Data:** Not applicable in this version. However, if collaboration is needed in the future, the 'Membership Map' pattern can be used to manage access.\n\n**Invariants:**\n\n*   Ownership of registration and certificates are maintained through the structured paths. Timestamps can be added at the document level as needed and enforced via rules."
+    ]
   }
 }

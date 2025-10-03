@@ -2,13 +2,16 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { mockParticipants, mockEvents } from '@/lib/data';
-import { Users2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Users2, CheckCircle, AlertTriangle, Loader2, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, writeBatch, doc } from 'firebase/firestore';
+import type { Participant, Event } from '@/lib/types';
+import { mockParticipants, mockEvents } from '@/lib/data'; // Keep for seeding
 
 const statusColors: {[key: string]: string} = {
   'Sent': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-300',
@@ -18,20 +21,56 @@ const statusColors: {[key: string]: string} = {
 
 export default function ParticipantsView() {
     const { toast } = useToast();
+    const firestore = useFirestore();
+
+    const participantsQuery = useMemoFirebase(() => collection(firestore, 'participants'), [firestore]);
+    const { data: participants, isLoading: isLoadingParticipants } = useCollection<Participant>(participantsQuery);
+
+    const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
+    const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
+
+    const eventsMap = useMemo(() => {
+        if (!events) return new Map<string, string>();
+        return new Map(events.map(e => [e.id, e.title]));
+    }, [events]);
 
     const stats = useMemo(() => {
-        const total = mockParticipants.length;
-        const delivered = mockParticipants.filter(p => p.certificateStatus === 'Sent').length;
-        const failures = mockParticipants.filter(p => p.certificateStatus === 'Failed').length;
+        if (!participants) return { total: 0, delivered: 0, failures: 0 };
+        const total = participants.length;
+        const delivered = participants.filter(p => p.certificateStatus === 'Sent').length;
+        const failures = participants.filter(p => p.certificateStatus === 'Failed').length;
         return { total, delivered, failures };
-    }, []);
+    }, [participants]);
 
-    const handleAddDemo = () => {
-        toast({
-            title: "Demo Action",
-            description: "This would add more demo participants.",
+    const handleAddDemoData = async () => {
+        const batch = writeBatch(firestore);
+
+        mockEvents.forEach(event => {
+            const eventRef = doc(firestore, "events", event.id);
+            batch.set(eventRef, event);
         });
+
+        mockParticipants.forEach(participant => {
+            const participantRef = doc(collection(firestore, "participants"));
+            batch.set(participantRef, participant);
+        });
+
+        try {
+            await batch.commit();
+            toast({
+                title: "Demo Data Added",
+                description: "Mock events and participants have been added to Firestore.",
+            });
+        } catch (error: any) {
+            toast({
+                title: "Error Adding Data",
+                description: error.message,
+                variant: "destructive",
+            });
+        }
     }
+
+    const isLoading = isLoadingParticipants || isLoadingEvents;
 
     return (
         <div className="space-y-6">
@@ -44,7 +83,7 @@ export default function ParticipantsView() {
                         <Users2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.total}</div>
+                        {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{stats.total}</div>}
                     </CardContent>
                 </Card>
                 <Card>
@@ -53,7 +92,7 @@ export default function ParticipantsView() {
                         <CheckCircle className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.delivered}</div>
+                        {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{stats.delivered}</div>}
                     </CardContent>
                 </Card>
                 <Card>
@@ -62,7 +101,7 @@ export default function ParticipantsView() {
                         <AlertTriangle className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.failures}</div>
+                        {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{stats.failures}</div>}
                     </CardContent>
                 </Card>
             </div>
@@ -71,8 +110,12 @@ export default function ParticipantsView() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Registration List</CardTitle>
+                        <CardDescription>This is a live view of all event participants.</CardDescription>
                     </div>
-                    <Button variant="outline" onClick={handleAddDemo}>Add Demo Participants</Button>
+                    <Button variant="outline" onClick={handleAddDemoData}>
+                        <Plus className="mr-2 h-4 w-4"/>
+                        Add Demo Data
+                    </Button>
                 </CardHeader>
                 <CardContent>
                     <div className="border rounded-md">
@@ -86,24 +129,35 @@ export default function ParticipantsView() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {mockParticipants.map(participant => {
-                                    const event = mockEvents.find(e => e.id === participant.eventId);
-                                    return (
-                                        <TableRow key={participant.id}>
-                                            <TableCell>
-                                                <div className="font-medium">{participant.name}</div>
-                                                <div className="text-sm text-muted-foreground md:hidden">{participant.email}</div>
-                                            </TableCell>
-                                            <TableCell className="hidden md:table-cell">{participant.email}</TableCell>
-                                            <TableCell>{event?.title || 'Unknown Event'}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Badge variant="outline" className={statusColors[participant.certificateStatus]}>
-                                                    {participant.certificateStatus}
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
+                                {isLoading && (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary"/>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                {!isLoading && (!participants || participants.length === 0) && (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            No participants found. Add some demo data to get started.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                {participants?.map(participant => (
+                                    <TableRow key={participant.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{participant.name}</div>
+                                            <div className="text-sm text-muted-foreground md:hidden">{participant.email}</div>
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell">{participant.email}</TableCell>
+                                        <TableCell>{eventsMap.get(participant.eventId) || 'Unknown Event'}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Badge variant="outline" className={statusColors[participant.certificateStatus]}>
+                                                {participant.certificateStatus}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
                             </TableBody>
                         </Table>
                     </div>

@@ -1,12 +1,11 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Users } from 'lucide-react';
-import { mockEvents } from '@/lib/data';
+import { Plus, Users, Loader2 } from 'lucide-react';
 import type { Event } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 const categoryColors: {[key: string]: string} = {
   Tech: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-blue-300',
@@ -22,15 +23,15 @@ const categoryColors: {[key: string]: string} = {
   Education: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 border-yellow-300',
 };
 
-function CreateEventForm({ onEventCreated }: { onEventCreated: (newEvent: Event) => void }) {
-    const [open, setOpen] = useState(false);
+function CreateEventForm() {
+    const [open, setOpen] = React.useState(false);
     const { toast } = useToast();
+    const firestore = useFirestore();
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const newEvent: Event = {
-            id: `evt${Date.now()}`,
+        const newEventData = {
             title: formData.get('title') as string,
             description: formData.get('description') as string,
             date: formData.get('date') as string,
@@ -38,7 +39,7 @@ function CreateEventForm({ onEventCreated }: { onEventCreated: (newEvent: Event)
             participantCount: 0,
         };
         
-        if (!newEvent.title || !newEvent.date || !newEvent.category) {
+        if (!newEventData.title || !newEventData.date || !newEventData.category) {
             toast({
                 title: 'Error',
                 description: 'Please fill out all required fields.',
@@ -47,12 +48,22 @@ function CreateEventForm({ onEventCreated }: { onEventCreated: (newEvent: Event)
             return;
         }
 
-        onEventCreated(newEvent);
-        toast({
-            title: 'Success!',
-            description: `Event "${newEvent.title}" has been created.`,
-        });
-        setOpen(false);
+        try {
+            const eventsCollection = collection(firestore, 'events');
+            await addDoc(eventsCollection, newEventData);
+            
+            toast({
+                title: 'Success!',
+                description: `Event "${newEventData.title}" has been created.`,
+            });
+            setOpen(false);
+        } catch (error: any) {
+             toast({
+                title: 'Error creating event',
+                description: error.message,
+                variant: 'destructive'
+            });
+        }
     };
     
     return (
@@ -103,22 +114,33 @@ function CreateEventForm({ onEventCreated }: { onEventCreated: (newEvent: Event)
     );
 }
 
-
 export default function EventsView() {
-    const [events, setEvents] = useState<Event[]>(mockEvents);
-    
-    const addEvent = (newEvent: Event) => {
-        setEvents(prev => [newEvent, ...prev]);
-    };
+    const firestore = useFirestore();
+    const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
+    const { data: events, isLoading } = useCollection<Event>(eventsQuery);
 
     return (
     <div className="space-y-6">
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold tracking-tight">Events</h2>
-            <CreateEventForm onEventCreated={addEvent} />
+            <CreateEventForm />
         </div>
+        {isLoading && <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>}
+        
+        {!isLoading && (!events || events.length === 0) && (
+            <Card className="flex flex-col items-center justify-center py-12">
+                 <CardHeader>
+                    <CardTitle>No Events Found</CardTitle>
+                    <CardDescription>Get started by creating your first event.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                     <CreateEventForm />
+                 </CardContent>
+            </Card>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {events.map(event => (
+            {events?.map(event => (
                 <Card key={event.id} className="flex flex-col justify-between hover:shadow-lg transition-shadow duration-300">
                     <CardHeader>
                         <div className="flex justify-between items-start">

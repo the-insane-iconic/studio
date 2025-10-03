@@ -2,16 +2,19 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { mockEvents, mockParticipants, certificateTemplates } from '@/lib/data';
-import { availableFields, CertificateTemplate as TemplateType } from '@/lib/types';
+import { certificateTemplates } from '@/lib/data';
+import { availableFields, CertificateTemplate as TemplateType, Event, Participant } from '@/lib/types';
 import AiSuggestion from './ai-suggestion';
 import CertificatePreview from './certificate-preview';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+
 
 type FormData = {
   eventId: string;
@@ -32,8 +35,18 @@ export default function DashboardView() {
   const [progress, setProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState<'success' | 'failed' | null>(null);
 
-  const selectedEvent = useMemo(() => mockEvents.find(e => e.id === formData.eventId), [formData.eventId]);
-  const participantsForEvent = useMemo(() => mockParticipants.filter(p => p.eventId === formData.eventId), [formData.eventId]);
+  const firestore = useFirestore();
+
+  const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
+  const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
+
+  const selectedEvent = useMemo(() => events?.find(e => e.id === formData.eventId), [events, formData.eventId]);
+
+  const participantsQuery = useMemoFirebase(() => 
+    formData.eventId ? query(collection(firestore, 'participants'), where('eventId', '==', formData.eventId)) : null
+  , [firestore, formData.eventId]);
+  const { data: participantsForEvent, isLoading: isLoadingParticipants } = useCollection<Participant>(participantsQuery);
+
 
   const handleNext = () => setStep(prev => Math.min(prev + 1, 5));
   const handlePrev = () => setStep(prev => Math.max(prev - 1, 1));
@@ -98,7 +111,8 @@ export default function DashboardView() {
                 <SelectValue placeholder="Choose an event..." />
               </SelectTrigger>
               <SelectContent>
-                {mockEvents.map(event => (
+                {isLoadingEvents && <div className="flex items-center justify-center p-4"><Loader2 className="h-5 w-5 animate-spin"/></div>}
+                {events?.map(event => (
                   <SelectItem key={event.id} value={event.id}>
                     {event.title} ({event.participantCount} participants)
                   </SelectItem>
@@ -200,12 +214,12 @@ export default function DashboardView() {
                         <p className="text-muted-foreground mb-4">A summary of your selections:</p>
                         <div className="text-left max-w-md mx-auto bg-muted/50 rounded-lg p-4 space-y-2 mb-6">
                             <p><strong>Event:</strong> {selectedEvent?.title || 'N/A'}</p>
-                            <p><strong>Participants:</strong> {participantsForEvent.length}</p>
+                            <p><strong>Participants:</strong> {isLoadingParticipants ? <Loader2 className="h-4 w-4 animate-spin inline-flex"/> : (participantsForEvent?.length ?? 0)}</p>
                             <p><strong>Template:</strong> {certificateTemplates.find(t => t.id === formData.templateId)?.name || 'N/A'}</p>
                             <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.join(', ') || 'N/A'}</p>
                         </div>
-                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0}>
-                            Generate {participantsForEvent.length} Certificates
+                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0 || isLoadingParticipants}>
+                            Generate {(participantsForEvent?.length ?? 0)} Certificates
                         </Button>
                     </>)}
                 {isGenerating && (
@@ -219,7 +233,7 @@ export default function DashboardView() {
                     <div className="flex flex-col items-center gap-4">
                         <CheckCircle className="size-16 text-green-500" />
                         <h3 className="text-xl font-semibold">Generation Complete!</h3>
-                        <p className="text-muted-foreground">{participantsForEvent.length} certificates have been processed.</p>
+                        <p className="text-muted-foreground">{(participantsForEvent?.length ?? 0)} certificates have been processed.</p>
                         <Button onClick={resetWorkflow}>Start a New Batch</Button>
                     </div>
                 )}
