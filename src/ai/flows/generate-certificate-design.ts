@@ -11,12 +11,12 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const GenerateCertificateDesignInputSchema = z.object({
+const GenerateCertificateDesignInputSchema = z.object({
   prompt: z.string().describe('A creative prompt to guide the AI in generating the certificate background design.'),
 });
-export type GenerateCertificateDesignInput = z.infer<typeof GenerateCertificateDesignInputSchema>;
+type GenerateCertificateDesignInput = z.infer<typeof GenerateCertificateDesignInputSchema>;
 
-export const GenerateCertificateDesignOutputSchema = z.object({
+const GenerateCertificateDesignOutputSchema = z.object({
   designDataUrl: z
     .string()
     .describe(
