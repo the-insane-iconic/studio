@@ -1,313 +1,161 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Progress } from '@/components/ui/progress';
-import { certificateTemplates } from '@/lib/data';
-import { availableFields, CertificateTemplate as TemplateType, Event, Participant } from '@/lib/types';
-import AiSuggestion from './ai-suggestion';
-import CertificatePreview from './certificate-preview';
+import React from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
+import { collection, limit, orderBy, query } from 'firebase/firestore';
+import type { Event, Participant, Certificate } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { ArrowRight, Users, Calendar, Award, Loader2 } from 'lucide-react';
 
-
-type FormData = {
-  eventId: string;
-  templateId: TemplateType['id'] | '';
-  customFields: string[];
-  deliveryMethods: ('email' | 'whatsapp')[];
+const categoryColors: {[key: string]: string} = {
+  Tech: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-blue-300',
+  Business: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-300',
+  Art: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300 border-pink-300',
+  Education: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 border-yellow-300',
 };
 
-export default function DashboardView() {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<FormData>({
-    eventId: '',
-    templateId: '',
-    customFields: availableFields.filter(f => f.required).map(f => f.id),
-    deliveryMethods: [],
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [generationStatus, setGenerationStatus] = useState<'success' | 'failed' | null>(null);
 
+export default function DashboardView({ setActiveView }: { setActiveView: (view: any) => void }) {
   const firestore = useFirestore();
-  const { toast } = useToast();
 
   const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
   const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
 
-  const selectedEvent = useMemo(() => events?.find(e => e.id === formData.eventId), [events, formData.eventId]);
-
-  const participantsQuery = useMemoFirebase(() => 
-    formData.eventId ? query(collection(firestore, 'participants'), where('eventId', '==', formData.eventId)) : null
-  , [firestore, formData.eventId]);
-  const { data: participantsForEvent, isLoading: isLoadingParticipants } = useCollection<Participant>(participantsQuery);
-
-
-  const handleNext = () => setStep(prev => Math.min(prev + 1, 5));
-  const handlePrev = () => setStep(prev => Math.max(prev - 1, 1));
-
-  const handleFieldChange = (fieldId: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      customFields: checked ? [...prev.customFields, fieldId] : prev.customFields.filter(id => id !== fieldId),
-    }));
-  };
+  const participantsQuery = useMemoFirebase(() => collection(firestore, 'participants'), [firestore]);
+  const { data: participants, isLoading: isLoadingParticipants } = useCollection<Participant>(participantsQuery);
   
-  const handleDeliveryChange = (method: 'email' | 'whatsapp', checked: boolean) => {
-    setFormData(prev => ({
-        ...prev,
-        deliveryMethods: checked ? [...prev.deliveryMethods, method] : prev.deliveryMethods.filter(m => m !== method),
-    }));
-  };
+  const certificatesQuery = useMemoFirebase(() => collection(firestore, 'certificates'), [firestore]);
+  const { data: certificates, isLoading: isLoadingCertificates } = useCollection<Certificate>(certificatesQuery);
 
-  const handleGenerate = async () => {
-    if (!participantsForEvent || participantsForEvent.length === 0) {
-      toast({ title: 'No participants to process', variant: 'destructive' });
-      return;
-    }
+  const recentEventsQuery = useMemoFirebase(() => query(collection(firestore, 'events'), orderBy('date', 'desc'), limit(3)), [firestore]);
+  const { data: recentEvents, isLoading: isLoadingRecentEvents } = useCollection<Event>(recentEventsQuery);
 
-    setIsGenerating(true);
-    setProgress(0);
-    setGenerationStatus(null);
-
-    const totalParticipants = participantsForEvent.length;
-    const batch = writeBatch(firestore);
-    const certificatesCollection = collection(firestore, 'certificates');
-    
-    try {
-      for (let i = 0; i < totalParticipants; i++) {
-        const participant = participantsForEvent[i];
-        
-        // 1. Create a new certificate document
-        const newCertificateRef = doc(certificatesCollection);
-        batch.set(newCertificateRef, {
-            eventId: formData.eventId,
-            userId: participant.id, // Using participant ID as the user reference
-            templateId: formData.templateId,
-            issueDate: serverTimestamp(),
-            web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`, // Simulated hash
-            deliveryMethod: formData.deliveryMethods.join(', '),
-            deliveryStatus: 'Sent',
-        });
-
-        // 2. Update the participant's certificate status
-        const participantRef = doc(firestore, 'participants', participant.id);
-        batch.update(participantRef, { certificateStatus: 'Sent' });
-
-        // 3. Update progress
-        setProgress(Math.round(((i + 1) / totalParticipants) * 100));
-        // A small delay to make progress visible for small batches
-        await new Promise(res => setTimeout(res, 50)); 
-      }
-
-      await batch.commit();
-
-      setGenerationStatus('success');
-      toast({
-        title: 'Success!',
-        description: `${totalParticipants} certificates have been generated and sent.`,
-      });
-
-    } catch (error: any) {
-        console.error("Certificate generation failed:", error);
-        setGenerationStatus('failed');
-        toast({
-            title: 'Generation Failed',
-            description: error.message || 'An unexpected error occurred.',
-            variant: 'destructive',
-        });
-    } finally {
-        setIsGenerating(false);
-    }
-  };
-  
-  const resetWorkflow = () => {
-    setStep(1);
-    setFormData({ eventId: '', templateId: '', customFields: availableFields.filter(f => f.required).map(f => f.id), deliveryMethods: [] });
-    setIsGenerating(false);
-    setProgress(0);
-    setGenerationStatus(null);
-  };
-
+  const isLoading = isLoadingEvents || isLoadingParticipants || isLoadingCertificates || isLoadingRecentEvents;
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle>Certificate Generation Workflow</CardTitle>
-        <CardDescription>Step {step} of 5: {
-            ['Event Selection', 'Template Selection', 'Field Customization', 'Delivery Methods', 'Generate & Track'][step - 1]
-        }</CardDescription>
-        {step < 5 && <div className="pt-2">
-            <Progress value={step * 20} className="w-full" />
-        </div>}
-      </CardHeader>
-      <CardContent>
-        {step === 1 && (
-          <div className="space-y-4">
-            <h3 className="font-semibold">Select an Event</h3>
-            <Select onValueChange={(value) => setFormData(prev => ({ ...prev, eventId: value }))} value={formData.eventId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose an event..." />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoadingEvents && <div className="flex items-center justify-center p-4"><Loader2 className="h-5 w-5 animate-spin"/></div>}
-                {events?.map(event => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.title} ({event.participantCount} participants)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedEvent && <p className="text-sm text-muted-foreground">{selectedEvent.description}</p>}
-          </div>
-        )}
-        
-        {step === 2 && (
-            <div>
-                <h3 className="font-semibold mb-4">Select a Template</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {certificateTemplates.map(template => (
-                        <Card 
-                            key={template.id} 
-                            onClick={() => setFormData(p => ({...p, templateId: template.id}))}
-                            className={`cursor-pointer transition-all ${formData.templateId === template.id ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
-                        >
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    {formData.templateId === template.id && <Check className="text-primary" />}
-                                    {template.name}
-                                </CardTitle>
-                                <CardDescription>{template.description}</CardDescription>
-                            </CardHeader>
-                        </Card>
-                    ))}
-                </div>
-                {selectedEvent && <AiSuggestion eventTitle={selectedEvent.title} eventDescription={selectedEvent.description} />}
-            </div>
-        )}
-
-        {step === 3 && (
-            <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                    <h3 className="font-semibold mb-4">Customize Certificate Fields</h3>
-                    <div className="space-y-3">
-                        {availableFields.map(field => (
-                            <div key={field.id} className="flex items-center space-x-2">
-                                <Checkbox 
-                                    id={field.id} 
-                                    checked={formData.customFields.includes(field.id)}
-                                    onCheckedChange={(checked) => handleFieldChange(field.id, !!checked)}
-                                    disabled={field.required}
-                                />
-                                <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    {field.label} {field.required && <span className="text-destructive">*</span>}
-                                </label>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div>
-                    <h3 className="font-semibold mb-4">Live Preview</h3>
-                    <CertificatePreview templateId={formData.templateId} fields={formData.customFields} />
-                </div>
-            </div>
-        )}
-        
-        {step === 4 && (
-            <div>
-                <h3 className="font-semibold mb-4">Choose Delivery Methods</h3>
-                <div className="space-y-4">
-                     <div className="flex items-center space-x-3 p-4 border rounded-md has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
-                        <Checkbox id="email-delivery" onCheckedChange={(checked) => handleDeliveryChange('email', !!checked)} checked={formData.deliveryMethods.includes('email')}/>
-                        <label htmlFor="email-delivery" className="w-full cursor-pointer">
-                            <div className="flex items-center gap-3">
-                                <Mail className="text-primary"/>
-                                <div>
-                                    <p className="font-medium">Email Delivery</p>
-                                    <p className="text-sm text-muted-foreground">Send certificates directly to participants' inboxes.</p>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-4 border rounded-md has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
-                        <Checkbox id="whatsapp-delivery" onCheckedChange={(checked) => handleDeliveryChange('whatsapp', !!checked)} checked={formData.deliveryMethods.includes('whatsapp')}/>
-                         <label htmlFor="whatsapp-delivery" className="w-full cursor-pointer">
-                            <div className="flex items-center gap-3">
-                                <Send className="text-primary"/>
-                                <div>
-                                    <p className="font-medium">WhatsApp Delivery (Simulated)</p>
-                                    <p className="text-sm text-muted-foreground">Generate a shareable link for WhatsApp.</p>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {step === 5 && (
-            <div className="text-center">
-                {!isGenerating && !generationStatus && (
-                    <>
-                        <h3 className="font-semibold mb-2">Ready to Generate?</h3>
-                        <p className="text-muted-foreground mb-4">A summary of your selections:</p>
-                        <div className="text-left max-w-md mx-auto bg-muted/50 rounded-lg p-4 space-y-2 mb-6">
-                            <p><strong>Event:</strong> {selectedEvent?.title || 'N/A'}</p>
-                            <p><strong>Participants:</strong> {isLoadingParticipants ? <Loader2 className="h-4 w-4 animate-spin inline-flex"/> : (participantsForEvent?.length ?? 0)}</p>
-                            <p><strong>Template:</strong> {certificateTemplates.find(t => t.id === formData.templateId)?.name || 'N/A'}</p>
-                            <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.join(', ') || 'N/A'}</p>
-                        </div>
-                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
-                            Generate {(participantsForEvent?.length ?? 0)} Certificates
-                        </Button>
-                    </>)}
-                {isGenerating && (
-                    <>
-                        <h3 className="font-semibold mb-4">Generating Certificates...</h3>
-                        <Progress value={progress} className="w-full max-w-md mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">{progress}% complete</p>
-                    </>
-                )}
-                {generationStatus === 'success' && (
-                    <div className="flex flex-col items-center gap-4">
-                        <CheckCircle className="size-16 text-green-500" />
-                        <h3 className="text-xl font-semibold">Generation Complete!</h3>
-                        <p className="text-muted-foreground">{(participantsForEvent?.length ?? 0)} certificates have been processed.</p>
-                        <Button onClick={resetWorkflow}>Start a New Batch</Button>
-                    </div>
-                )}
-                {generationStatus === 'failed' && (
-                     <div className="flex flex-col items-center gap-4">
-                        <XCircle className="size-16 text-destructive" />
-                        <h3 className="text-xl font-semibold">Generation Failed</h3>
-                        <p className="text-muted-foreground">Something went wrong. Please try again.</p>
-                        <Button onClick={resetWorkflow} variant="destructive">Try Again</Button>
-                    </div>
-                )}
-            </div>
-        )}
-
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={handlePrev} disabled={step === 1 || isGenerating || !!generationStatus}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-          </Button>
-          {step < 5 ? (
-            <Button onClick={handleNext} disabled={(step === 1 && !formData.eventId) || (step === 2 && !formData.templateId) || (step === 4 && formData.deliveryMethods.length === 0)}>
-              Next <ArrowRight className="ml-2 h-4 w-4" />
+    <div className="space-y-6">
+       <div className="flex justify-between items-center">
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            <Button onClick={() => setActiveView('certificates')}>
+                Generate Certificates <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          ) : <div/>}
         </div>
-      </CardContent>
-    </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingEvents ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{events?.length ?? 0}</div>}
+            <p className="text-xs text-muted-foreground">All time</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Participants</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingParticipants ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{participants?.length ?? 0}</div>}
+            <p className="text-xs text-muted-foreground">Across all events</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Certificates Issued</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+             {isLoadingCertificates ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-2xl font-bold">{certificates?.length ?? 0}</div>}
+            <p className="text-xs text-muted-foreground">Total certificates generated</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+            <CardHeader>
+                <CardTitle>Recent Events</CardTitle>
+                <CardDescription>A quick look at the latest events.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    {isLoadingRecentEvents && <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>}
+                    {recentEvents?.map(event => (
+                        <div key={event.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                            <div>
+                                <p className="font-semibold">{event.title}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {new Date(event.date).toLocaleDateString()}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={categoryColors[event.category]}>{event.category}</Badge>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveView('events')}>Manage</Button>
+                            </div>
+                        </div>
+                    ))}
+                    {!isLoadingRecentEvents && recentEvents?.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No events found.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle>Activity Feed</CardTitle>
+                <CardDescription>Live updates from the platform.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    {isLoading && <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>}
+                    {!isLoading && certificates?.slice(0,3).map(cert => (
+                        <div key={cert.id} className="flex items-start gap-3">
+                            <div className="bg-primary/10 p-2 rounded-full">
+                                <Award className="h-4 w-4 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">New Certificate Issued</p>
+                                <p className="text-xs text-muted-foreground">For event: {events?.find(e => e.id === cert.eventId)?.title || 'Unknown'}</p>
+                            </div>
+                        </div>
+                    ))}
+                    {!isLoading && (participants?.length || 0) > 0 && (
+                         <div className="flex items-start gap-3">
+                            <div className="bg-accent/10 p-2 rounded-full">
+                                <Users className="h-4 w-4 text-accent" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">New Participant</p>
+                                <p className="text-xs text-muted-foreground">{participants?.[participants.length -1].name} registered for an event.</p>
+                            </div>
+                        </div>
+                    )}
+                     {!isLoading && (events?.length || 0) > 0 && (
+                         <div className="flex items-start gap-3">
+                            <div className="bg-green-500/10 p-2 rounded-full">
+                                <Calendar className="h-4 w-4 text-green-500" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">New Event Created</p>
+                                <p className="text-xs text-muted-foreground">"{events?.[events.length -1].title}" is now live.</p>
+                            </div>
+                        </div>
+                    )}
+                    {!isLoading && certificates?.length === 0 && participants?.length === 0 && events?.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+      </div>
+
+    </div>
   );
 }
-
-    

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -15,13 +16,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Award, Calendar, LayoutDashboard, LogOut, Settings, Users2 } from 'lucide-react';
+import { Award, Calendar, LayoutDashboard, LogOut, Settings, Users2, BadgeCheck } from 'lucide-react';
 
 import DashboardView from './dashboard-view';
 import EventsView from './events-view';
 import ParticipantsView from './participants-view';
+import CertificatesView from './certificates-view';
 
-type View = 'dashboard' | 'events' | 'participants';
+type View = 'dashboard' | 'events' | 'participants' | 'certificates';
 
 export default function AppLayout() {
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -29,13 +31,15 @@ export default function AppLayout() {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView />;
+        return <DashboardView setActiveView={setActiveView} />;
       case 'events':
         return <EventsView />;
       case 'participants':
         return <ParticipantsView />;
+      case 'certificates':
+        return <CertificatesView />;
       default:
-        return <DashboardView />;
+        return <DashboardView setActiveView={setActiveView} />;
     }
   };
 
@@ -82,6 +86,16 @@ export default function AppLayout() {
               >
                 <Users2 />
                 Participants &amp; Status
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => setActiveView('certificates')}
+                isActive={activeView === 'certificates'}
+                tooltip="Certificates"
+              >
+                <BadgeCheck />
+                Certificates
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

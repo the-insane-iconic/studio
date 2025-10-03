@@ -1,3 +1,4 @@
+
 export type Event = {
   id: string;
   title: string;
@@ -17,6 +18,17 @@ export type Participant = {
   eventId: string;
   certificateStatus: 'Not Sent' | 'Sent' | 'Failed';
 };
+
+export type Certificate = {
+    id: string;
+    eventId: string;
+    userId: string;
+    templateId: string;
+    issueDate: any;
+    web3Hash: string;
+    deliveryMethod: string;
+    deliveryStatus: string;
+}
 
 export type CertificateTemplate = {
   id: 'classic' | 'modern' | 'web3' | 'creative';
