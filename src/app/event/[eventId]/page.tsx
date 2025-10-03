@@ -14,10 +14,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar, Users, ArrowLeft, PlusCircle } from 'lucide-react';
+import { Loader2, Calendar, Users, ArrowLeft, PlusCircle, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import QRCode from "react-qr-code";
 
 const statusColors: {[key: string]: string} = {
   'Sent': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-300',
@@ -147,6 +148,44 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
     );
 }
 
+function GenerateQrCodeDialog({ eventId }: { eventId: string }) {
+    const [open, setOpen] = useState(false);
+    const verificationUrl = typeof window !== 'undefined' ? `${window.location.origin}/verify/${eventId}` : '';
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Verification QR Code
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Certificate Verification</DialogTitle>
+                    <DialogDescription>
+                        Share this QR code with participants. Scanning it will take them to a page where they can enter their email to download their certificate.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center justify-center p-4 bg-white rounded-lg">
+                    {verificationUrl && (
+                        <QRCode
+                            size={256}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                            value={verificationUrl}
+                            viewBox={`0 0 256 256`}
+                        />
+                    )}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function EventPage() {
     const params = useParams();
@@ -207,14 +246,17 @@ export default function EventPage() {
             
             <main className="container mx-auto px-4 md:px-6 py-8">
                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
+                    <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div>
                             <CardTitle>Event Participants</CardTitle>
                             <CardDescription>
                                 A live list of everyone registered for "{event.title}".
                             </CardDescription>
                         </div>
-                        <AddParticipantDialog eventId={eventId}/>
+                        <div className="flex gap-2">
+                           <GenerateQrCodeDialog eventId={eventId} />
+                           <AddParticipantDialog eventId={eventId}/>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="border rounded-md">

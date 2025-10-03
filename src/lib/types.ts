@@ -23,6 +23,7 @@ export type Certificate = {
     id: string;
     eventId: string;
     userId: string;
+    participantName: string; // Added to easily display name
     templateId: string;
     issueDate: any;
     web3Hash: string;

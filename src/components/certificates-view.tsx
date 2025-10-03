@@ -181,6 +181,7 @@ export default function CertificatesView() {
         addDocumentNonBlocking(certificatesCollection, {
             eventId: formData.eventId,
             userId: participant.id,
+            participantName: participant.name,
             templateId: formData.templateId,
             issueDate: serverTimestamp(),
             web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
