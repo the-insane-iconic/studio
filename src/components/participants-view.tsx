@@ -43,6 +43,14 @@ export default function ParticipantsView() {
     }, [participants]);
 
     const handleAddDemoData = async () => {
+        if (!firestore) {
+            toast({
+                title: "Firestore not available",
+                description: "Please wait for Firebase to initialize.",
+                variant: "destructive",
+            });
+            return;
+        }
         const batch = writeBatch(firestore);
 
         mockEvents.forEach(event => {
@@ -51,6 +59,7 @@ export default function ParticipantsView() {
         });
 
         mockParticipants.forEach(participant => {
+            // Use doc(collection(...)) to get a ref with an auto-generated ID
             const participantRef = doc(collection(firestore, "participants"));
             batch.set(participantRef, participant);
         });
@@ -114,7 +123,7 @@ export default function ParticipantsView() {
                     </div>
                     <Button variant="outline" onClick={handleAddDemoData}>
                         <Plus className="mr-2 h-4 w-4"/>
-                        Add Demo Data
+                        Add Mock Data
                     </Button>
                 </CardHeader>
                 <CardContent>
@@ -139,7 +148,7 @@ export default function ParticipantsView() {
                                 {!isLoading && (!participants || participants.length === 0) && (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-24 text-center">
-                                            No participants found. Add some demo data to get started.
+                                            No participants found. Add some mock data to get started.
                                         </TableCell>
                                     </TableRow>
                                 )}

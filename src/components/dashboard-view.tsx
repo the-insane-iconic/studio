@@ -7,9 +7,9 @@ import { collection, limit, orderBy, query } from 'firebase/firestore';
 import type { Event, Participant, Certificate } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Users, Calendar, Award, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 
 const categoryColors: {[key: string]: string} = {
   Tech: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-blue-300',
@@ -40,8 +40,10 @@ export default function DashboardView({ setActiveView }: { setActiveView: (view:
     <div className="space-y-6">
        <div className="flex justify-between items-center">
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-            <Button onClick={() => setActiveView('certificates')}>
-                Generate Certificates <ArrowRight className="ml-2 h-4 w-4" />
+            <Button asChild>
+                <Link href="/certificates">
+                    Generate Certificates <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
             </Button>
         </div>
 
@@ -97,7 +99,9 @@ export default function DashboardView({ setActiveView }: { setActiveView: (view:
                             </div>
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline" className={categoryColors[event.category]}>{event.category}</Badge>
-                                <Button variant="ghost" size="sm" onClick={() => setActiveView('events')}>Manage</Button>
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link href={`/event/${event.id}`}>Manage</Link>
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -115,40 +119,44 @@ export default function DashboardView({ setActiveView }: { setActiveView: (view:
             <CardContent>
                 <div className="space-y-4">
                     {isLoading && <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>}
-                    {!isLoading && certificates?.slice(0,3).map(cert => (
-                        <div key={cert.id} className="flex items-start gap-3">
+                    
+                    {!isLoading && certificates && certificates.length > 0 && (
+                        <div key={certificates[0].id} className="flex items-start gap-3">
                             <div className="bg-primary/10 p-2 rounded-full">
                                 <Award className="h-4 w-4 text-primary" />
                             </div>
                             <div>
                                 <p className="text-sm font-medium">New Certificate Issued</p>
-                                <p className="text-xs text-muted-foreground">For event: {events?.find(e => e.id === cert.eventId)?.title || 'Unknown'}</p>
+                                <p className="text-xs text-muted-foreground">For event: {events?.find(e => e.id === certificates[0].eventId)?.title || 'Unknown'}</p>
                             </div>
                         </div>
-                    ))}
-                    {!isLoading && (participants?.length || 0) > 0 && (
+                    )}
+                    
+                    {!isLoading && participants && participants.length > 0 && (
                          <div className="flex items-start gap-3">
                             <div className="bg-accent/10 p-2 rounded-full">
                                 <Users className="h-4 w-4 text-accent" />
                             </div>
                             <div>
                                 <p className="text-sm font-medium">New Participant</p>
-                                <p className="text-xs text-muted-foreground">{participants?.[participants.length -1].name} registered for an event.</p>
+                                <p className="text-xs text-muted-foreground">{participants[participants.length -1].name} registered for an event.</p>
                             </div>
                         </div>
                     )}
-                     {!isLoading && (events?.length || 0) > 0 && (
+                    
+                     {!isLoading && events && events.length > 0 && (
                          <div className="flex items-start gap-3">
                             <div className="bg-green-500/10 p-2 rounded-full">
                                 <Calendar className="h-4 w-4 text-green-500" />
                             </div>
                             <div>
                                 <p className="text-sm font-medium">New Event Created</p>
-                                <p className="text-xs text-muted-foreground">"{events?.[events.length -1].title}" is now live.</p>
+                                <p className="text-xs text-muted-foreground">"{events[events.length -1].title}" is now live.</p>
                             </div>
                         </div>
                     )}
-                    {!isLoading && certificates?.length === 0 && participants?.length === 0 && events?.length === 0 && (
+
+                    {!isLoading && (!certificates || certificates.length === 0) && (!participants || participants.length === 0) && (!events || events.length === 0) && (
                         <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>
                     )}
                 </div>
