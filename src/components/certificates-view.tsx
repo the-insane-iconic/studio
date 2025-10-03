@@ -159,7 +159,7 @@ export default function CertificatesView() {
                 recipientEmail: participant.email,
                 recipientName: participant.name,
                 eventName: selectedEvent.title,
-                certificateDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl : undefined,
+                certificateDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl ?? undefined : undefined,
              }).then(result => {
                 if (result.success) {
                     console.log(`Email flow triggered for ${participant.email}`);
@@ -367,3 +367,5 @@ export default function CertificatesView() {
     </Card>
   );
 }
+
+    

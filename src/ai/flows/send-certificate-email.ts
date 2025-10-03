@@ -58,20 +58,19 @@ const sendCertificateEmailFlow = ai.defineFlow(
     });
 
     const mailOptions = {
-      from: `"EventEye Platform" <${process.env.EMAIL_USER}>`,
+      from: `"EventChain Pro" <${process.env.EMAIL_USER}>`,
       to: input.recipientEmail,
       subject: `Your Certificate for ${input.eventName} is Here!`,
       html: `
         <h1>Congratulations, ${input.recipientName}!</h1>
         <p>Thank you for participating in <strong>${input.eventName}</strong>.</p>
         <p>Your certificate of completion is attached to this email.</p>
-        <p>Best regards,<br>The EventEye Team</p>
+        <p>Best regards,<br>The EventChain Pro Team</p>
       `,
       attachments: input.certificateDataUrl ? [
         {
           filename: 'certificate.png',
           path: input.certificateDataUrl,
-          cid: 'certificate-image' 
         }
       ] : [],
     };
@@ -93,3 +92,5 @@ const sendCertificateEmailFlow = ai.defineFlow(
     }
   }
 );
+
+    
