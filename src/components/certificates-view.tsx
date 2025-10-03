@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Users, ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -190,7 +189,7 @@ export default function CertificatesView() {
                           </SelectContent>
                         </Select>
                         <div className="p-3 rounded-md bg-muted/50 text-sm text-muted-foreground flex items-center gap-2">
-                            <Users2 className="h-4 w-4"/>
+                            <Users className="h-4 w-4"/>
                              <span>{isLoadingParticipants ? <Loader2 className="h-4 w-4 animate-spin"/> : `${participantsForEvent?.length ?? 0} participants registered`}</span>
                         </div>
                     </div>
@@ -317,3 +316,4 @@ export default function CertificatesView() {
     </div>
   );
 }
+
