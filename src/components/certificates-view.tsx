@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -7,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { certificateTemplates } from '@/lib/data';
@@ -75,7 +75,6 @@ function AiDesignGenerator({ event, onDesignGenerated }: { event: Event, onDesig
 
 
 export default function CertificatesView() {
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     eventId: '',
     templateId: '',
@@ -84,10 +83,7 @@ export default function CertificatesView() {
     aiDesignUrl: null,
     aiPrompt: '',
   });
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [generationStatus, setGenerationStatus] = useState<'success' | 'failed' | null>(null);
-
+  
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -101,9 +97,6 @@ export default function CertificatesView() {
   , [firestore, formData.eventId]);
   const { data: participantsForEvent, isLoading: isLoadingParticipants } = useCollection<Participant>(participantsQuery);
 
-
-  const handleNext = () => setStep(prev => Math.min(prev + 1, 5));
-  const handlePrev = () => setStep(prev => Math.max(prev - 1, 1));
 
   const handleFieldChange = (fieldId: string, checked: boolean) => {
     setFormData(prev => ({
@@ -125,10 +118,6 @@ export default function CertificatesView() {
       return;
     }
 
-    setIsProcessing(true);
-    setGenerationStatus(null);
-    let processedCount = 0;
-
     toast({
         title: 'Processing Started!',
         description: `${participantsForEvent.length} certificates are being generated in the background.`,
@@ -137,7 +126,6 @@ export default function CertificatesView() {
     const certificatesCollection = collection(firestore, 'certificates');
     
     participantsForEvent.forEach(participant => {
-        // 1. Create a new certificate document (non-blocking)
         addDocumentNonBlocking(certificatesCollection, {
             eventId: formData.eventId,
             userId: participant.id,
@@ -149,11 +137,9 @@ export default function CertificatesView() {
             designDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl : null,
         });
 
-        // 2. Update the participant's certificate status (non-blocking)
         const participantRef = doc(firestore, 'participants', participant.id);
         updateDocumentNonBlocking(participantRef, { certificateStatus: 'Sent' });
 
-        // 3. Trigger email sending flow if selected (non-blocking)
         if (formData.deliveryMethods.includes('email')) {
              sendCertificateEmail({
                 recipientEmail: participant.email,
@@ -165,207 +151,169 @@ export default function CertificatesView() {
                     console.log(`Email flow triggered for ${participant.email}`);
                 } else {
                     console.error(`Email flow failed for ${participant.email}: ${result.message}`);
-                    // Optionally, update participant status to 'Failed'
                     updateDocumentNonBlocking(participantRef, { certificateStatus: 'Failed' });
                 }
              });
         }
-        
-        processedCount++;
-        setProgress((processedCount / participantsForEvent.length) * 100);
     });
 
-    // Since operations are non-blocking, we can immediately show completion
-    setGenerationStatus('success');
-    setIsProcessing(false); // Update UI to show completion
+     toast({
+        title: 'Processing Complete!',
+        description: `${participantsForEvent.length} certificates have been queued for delivery.`,
+    });
   };
-  
-  const resetWorkflow = () => {
-    setStep(1);
-    setFormData({ eventId: '', templateId: '', customFields: availableFields.filter(f => f.required).map(f => f.id), deliveryMethods: [], aiDesignUrl: null, aiPrompt: '' });
-    setIsProcessing(false);
-    setProgress(0);
-    setGenerationStatus(null);
-  };
-
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle>Certificate Generation Workflow</CardTitle>
-        <CardDescription>Step {step} of 5: {
-            ['Event Selection', 'Template Selection', 'Field Customization', 'Delivery Methods', 'Generate & Track'][step - 1]
-        }</CardDescription>
-        {step < 5 && <div className="pt-2">
-            <Progress value={step * 20} className="w-full" />
-        </div>}
-      </CardHeader>
-      <CardContent>
-        {step === 1 && (
-          <div className="space-y-4">
-            <h3 className="font-semibold">Select an Event</h3>
-            <Select onValueChange={(value) => setFormData(prev => ({ ...prev, eventId: value }))} value={formData.eventId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose an event..." />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoadingEvents && <div className="flex items-center justify-center p-4"><Loader2 className="h-5 w-5 animate-spin"/></div>}
-                {events?.map(event => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.title} ({event.participantCount} participants)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedEvent && <p className="text-sm text-muted-foreground">{selectedEvent.description}</p>}
-          </div>
-        )}
-        
-        {step === 2 && (
-            <div>
-                <h3 className="font-semibold mb-4">Select a Template</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    {certificateTemplates.map(template => (
-                        <Card 
-                            key={template.id} 
-                            onClick={() => setFormData(p => ({...p, templateId: template.id}))}
-                            className={`cursor-pointer transition-all ${formData.templateId === template.id ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
-                        >
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    {formData.templateId === template.id && <Check className="text-primary" />}
-                                     {template.id === 'ai' ? <Sparkles className="text-accent" /> : null}
-                                    {template.name}
-                                </CardTitle>
-                                <CardDescription>{template.description}</CardDescription>
-                            </CardHeader>
-                        </Card>
-                    ))}
-                </div>
-
-                {formData.templateId === 'ai' && selectedEvent && (
-                    <AiDesignGenerator event={selectedEvent} onDesignGenerated={(url) => setFormData(p => ({ ...p, aiDesignUrl: url }))} />
-                )}
-
-                {formData.templateId !== 'ai' && selectedEvent && <AiSuggestion eventTitle={selectedEvent.title} eventDescription={selectedEvent.description} />}
-            </div>
-        )}
-
-        {step === 3 && (
-            <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                    <h3 className="font-semibold mb-4">Customize Certificate Fields</h3>
-                    <div className="space-y-3">
-                        {availableFields.map(field => (
-                            <div key={field.id} className="flex items-center space-x-2">
-                                <Checkbox 
-                                    id={field.id} 
-                                    checked={formData.customFields.includes(field.id)}
-                                    onCheckedChange={(checked) => handleFieldChange(field.id, !!checked)}
-                                    disabled={field.required}
-                                />
-                                <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    {field.label} {field.required && <span className="text-destructive">*</span>}
-                                </label>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div>
-                    <h3 className="font-semibold mb-4">Live Preview</h3>
-                    <CertificatePreview templateId={formData.templateId} fields={formData.customFields} aiDesignUrl={formData.aiDesignUrl} />
-                </div>
-            </div>
-        )}
-        
-        {step === 4 && (
-            <div>
-                <h3 className="font-semibold mb-4">Choose Delivery Methods</h3>
-                <div className="space-y-4">
-                     <div className="flex items-center space-x-3 p-4 border rounded-md has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
-                        <Checkbox id="email-delivery" onCheckedChange={(checked) => handleDeliveryChange('email', !!checked)} checked={formData.deliveryMethods.includes('email')}/>
-                        <label htmlFor="email-delivery" className="w-full cursor-pointer">
-                            <div className="flex items-center gap-3">
-                                <Mail className="text-primary"/>
-                                <div>
-                                    <p className="font-medium">Email Delivery</p>
-                                    <p className="text-sm text-muted-foreground">Send certificates directly to participants' inboxes.</p>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-4 border rounded-md has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
-                        <Checkbox id="whatsapp-delivery" onCheckedChange={(checked) => handleDeliveryChange('whatsapp', !!checked)} checked={formData.deliveryMethods.includes('whatsapp')}/>
-                         <label htmlFor="whatsapp-delivery" className="w-full cursor-pointer">
-                            <div className="flex items-center gap-3">
-                                <Send className="text-primary"/>
-                                <div>
-                                    <p className="font-medium">WhatsApp Delivery (Simulated)</p>
-                                    <p className="text-sm text-muted-foreground">Generate a shareable link for WhatsApp.</p>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {step === 5 && (
-            <div className="text-center">
-                {!isProcessing && !generationStatus && (
-                    <>
-                        <h3 className="font-semibold mb-2">Ready to Generate?</h3>
-                        <p className="text-muted-foreground mb-4">A summary of your selections:</p>
-                        <div className="text-left max-w-md mx-auto bg-muted/50 rounded-lg p-4 space-y-2 mb-6">
-                            <p><strong>Event:</strong> {selectedEvent?.title || 'N/A'}</p>
-                            <p><strong>Participants:</strong> {isLoadingParticipants ? <Loader2 className="h-4 w-4 animate-spin inline-flex"/> : (participantsForEvent?.length ?? 0)}</p>
-                            <p><strong>Template:</strong> {certificateTemplates.find(t => t.id === formData.templateId)?.name || 'N/A'}</p>
-                            <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ') || 'N/A'}</p>
-                        </div>
-                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || (formData.templateId === 'ai' && !formData.aiDesignUrl) || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
-                            Generate {(participantsForEvent?.length ?? 0)} Certificates
-                        </Button>
-                    </>)}
-                {isProcessing && (
-                     <div className="flex flex-col items-center gap-4">
-                        <Loader2 className="size-16 text-primary animate-spin" />
-                        <h3 className="text-xl font-semibold">Processing...</h3>
-                        <p className="text-muted-foreground">Your certificates are being generated and sent.</p>
-                        <Progress value={progress} className="w-1/2" />
-                    </div>
-                )}
-                {generationStatus === 'success' && !isProcessing && (
-                    <div className="flex flex-col items-center gap-4">
-                        <CheckCircle className="size-16 text-green-500" />
-                        <h3 className="text-xl font-semibold">Generation Complete!</h3>
-                        <p className="text-muted-foreground">{(participantsForEvent?.length ?? 0)} certificates have been processed.</p>
-                        <Button onClick={resetWorkflow}>Start a New Batch</Button>
-                    </div>
-                )}
-                {generationStatus === 'failed' && (
-                     <div className="flex flex-col items-center gap-4">
-                        <XCircle className="size-16 text-destructive" />
-                        <h3 className="text-xl font-semibold">Generation Failed</h3>
-                        <p className="text-muted-foreground">Something went wrong. Please check the console and try again.</p>
-                        <Button onClick={handleGenerate} variant="destructive">Try Again</Button>
-                    </div>
-                )}
-            </div>
-        )}
-
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={handlePrev} disabled={step === 1 || isProcessing || !!generationStatus}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-          </Button>
-          {step < 5 ? (
-            <Button onClick={handleNext} disabled={(step === 1 && !formData.eventId) || (step === 2 && !formData.templateId) || (step === 2 && formData.templateId === 'ai' && !formData.aiDesignUrl) || (step === 4 && formData.deliveryMethods.length === 0)}>
-              Next <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : <div/>}
+    <div className="space-y-8">
+        <div className="p-8 rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground">
+            <h2 className="text-3xl font-bold">Secure, Automated, and Verifiable.</h2>
+            <p className="mt-2 text-lg opacity-90">Follow the 5-step process to distribute hundreds of certificates in minutes.</p>
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="space-y-6 p-6 border rounded-lg">
+            <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 flex-grow-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">1</div>
+                <div className="w-full">
+                    <h3 className="font-semibold text-lg">Select Event & Participants</h3>
+                     <div className="space-y-4 mt-4">
+                        <Select onValueChange={(value) => setFormData(prev => ({ ...prev, eventId: value }))} value={formData.eventId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose an event..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isLoadingEvents && <div className="flex items-center justify-center p-4"><Loader2 className="h-5 w-5 animate-spin"/></div>}
+                            {events?.map(event => (
+                              <SelectItem key={event.id} value={event.id}>
+                                {event.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="p-3 rounded-md bg-muted/50 text-sm text-muted-foreground flex items-center gap-2">
+                            <Users2 className="h-4 w-4"/>
+                             <span>{isLoadingParticipants ? <Loader2 className="h-4 w-4 animate-spin"/> : `${participantsForEvent?.length ?? 0} participants registered`}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div className="space-y-6 p-6 border rounded-lg">
+            <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 flex-grow-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">2</div>
+                <div className="w-full">
+                    <h3 className="font-semibold text-lg">Choose Template & Get AI Field Suggestions 💡</h3>
+                     <div className="mt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                            {certificateTemplates.map(template => (
+                                <Card 
+                                    key={template.id} 
+                                    onClick={() => setFormData(p => ({...p, templateId: template.id}))}
+                                    className={`cursor-pointer transition-all ${formData.templateId === template.id ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
+                                >
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            {formData.templateId === template.id && <Check className="text-primary" />}
+                                             {template.id === 'ai' ? <Sparkles className="text-accent" /> : null}
+                                            {template.name}
+                                        </CardTitle>
+                                        <CardDescription>{template.description}</CardDescription>
+                                    </CardHeader>
+                                </Card>
+                            ))}
+                        </div>
+
+                        {formData.templateId === 'ai' && selectedEvent && (
+                            <AiDesignGenerator event={selectedEvent} onDesignGenerated={(url) => setFormData(p => ({ ...p, aiDesignUrl: url }))} />
+                        )}
+
+                        {formData.templateId !== 'ai' && selectedEvent && <AiSuggestion eventTitle={selectedEvent.title} eventDescription={selectedEvent.description} />}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div className="space-y-6 p-6 border rounded-lg">
+            <div className="flex items-start gap-4">
+                 <div className="flex-shrink-0 flex-grow-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">3</div>
+                 <div className="w-full">
+                    <h3 className="font-semibold text-lg">Customize Certificate Fields</h3>
+                    <div className="grid md:grid-cols-2 gap-8 mt-4">
+                        <div>
+                            <div className="space-y-3">
+                                {availableFields.map(field => (
+                                    <div key={field.id} className="flex items-center space-x-2">
+                                        <Checkbox 
+                                            id={field.id} 
+                                            checked={formData.customFields.includes(field.id)}
+                                            onCheckedChange={(checked) => handleFieldChange(field.id, !!checked)}
+                                            disabled={field.required}
+                                        />
+                                        <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            {field.label} {field.required && <span className="text-destructive">*</span>}
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold mb-4 text-muted-foreground">Live Preview</h4>
+                            <CertificatePreview templateId={formData.templateId} fields={formData.customFields} aiDesignUrl={formData.aiDesignUrl} />
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+        
+        <div className="space-y-6 p-6 border rounded-lg">
+            <div className="flex items-start gap-4">
+                 <div className="flex-shrink-0 flex-grow-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">4</div>
+                 <div className="w-full">
+                    <h3 className="font-semibold text-lg">Choose Delivery Methods</h3>
+                    <div className="space-y-4 mt-4">
+                         <div className="flex items-center space-x-3 p-4 border rounded-md has-[:checked]:bg-primary/10 has-[:checked]:border-primary">
+                            <Checkbox id="email-delivery" onCheckedChange={(checked) => handleDeliveryChange('email', !!checked)} checked={formData.deliveryMethods.includes('email')}/>
+                            <label htmlFor="email-delivery" className="w-full cursor-pointer">
+                                <div className="flex items-center gap-3">
+                                    <Mail className="text-primary"/>
+                                    <div>
+                                        <p className="font-medium">Email Delivery</p>
+                                        <p className="text-sm text-muted-foreground">Send certificates directly to participants' inboxes.</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        <div className="flex items-center space-x-3 p-4 border rounded-md has-[:checked]:bg-primary/10 has-[:checked]:border-primary">
+                            <Checkbox id="whatsapp-delivery" onCheckedChange={(checked) => handleDeliveryChange('whatsapp', !!checked)} checked={formData.deliveryMethods.includes('whatsapp')}/>
+                             <label htmlFor="whatsapp-delivery" className="w-full cursor-pointer">
+                                <div className="flex items-center gap-3">
+                                    <Send className="text-primary"/>
+                                    <div>
+                                        <p className="font-medium">WhatsApp Delivery (Simulated)</p>
+                                        <p className="text-sm text-muted-foreground">Generate a shareable link for WhatsApp.</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <div className="space-y-6 p-6 border rounded-lg">
+             <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 flex-grow-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">5</div>
+                <div className="w-full">
+                     <h3 className="font-semibold text-lg">Generate & Track</h3>
+                     <div className="text-center mt-4">
+                        <p className="text-muted-foreground mb-4">You are about to generate and send certificates to {isLoadingParticipants ? '...' : (participantsForEvent?.length ?? 0)} participants.</p>
+                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || (formData.templateId === 'ai' && !formData.aiDesignUrl) || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
+                            Generate Certificates
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
   );
 }
-
-    

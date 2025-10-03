@@ -1,13 +1,7 @@
 
 "use client"
-
-import AppLayout from "@/components/app-layout";
-import CertificatesView from "@/components/certificates-view";
+import Home from "../page";
 
 export default function CertificatesPage() {
-    return (
-        <AppLayout>
-            <CertificatesView />
-        </AppLayout>
-    )
+    return <Home />
 }
