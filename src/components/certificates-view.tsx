@@ -19,6 +19,7 @@ import { collection, query, where, serverTimestamp, doc } from 'firebase/firesto
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { generateCertificateDesign } from '@/ai/flows/generate-certificate-design';
+import { sendCertificateEmail } from '@/ai/flows/send-certificate-email';
 
 
 type FormData = {
@@ -119,21 +120,20 @@ export default function CertificatesView() {
   };
 
   const handleGenerate = () => {
-    if (!firestore || !participantsForEvent || participantsForEvent.length === 0) {
-      toast({ title: 'No participants to process', variant: 'destructive' });
+    if (!firestore || !participantsForEvent || participantsForEvent.length === 0 || !selectedEvent) {
+      toast({ title: 'No participants to process or event not selected', variant: 'destructive' });
       return;
     }
 
-    // Optimistically update UI
     setIsProcessing(true);
-    setProgress(100); // Show completion instantly
-    setGenerationStatus('success');
+    setGenerationStatus(null);
+    let processedCount = 0;
+
     toast({
         title: 'Processing Started!',
         description: `${participantsForEvent.length} certificates are being generated in the background.`,
     });
 
-    // Perform non-blocking writes
     const certificatesCollection = collection(firestore, 'certificates');
     
     participantsForEvent.forEach(participant => {
@@ -152,7 +152,32 @@ export default function CertificatesView() {
         // 2. Update the participant's certificate status (non-blocking)
         const participantRef = doc(firestore, 'participants', participant.id);
         updateDocumentNonBlocking(participantRef, { certificateStatus: 'Sent' });
+
+        // 3. Trigger email sending flow if selected (non-blocking)
+        if (formData.deliveryMethods.includes('email')) {
+             sendCertificateEmail({
+                recipientEmail: participant.email,
+                recipientName: participant.name,
+                eventName: selectedEvent.title,
+                certificateDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl : undefined,
+             }).then(result => {
+                if (result.success) {
+                    console.log(`Email flow triggered for ${participant.email}`);
+                } else {
+                    console.error(`Email flow failed for ${participant.email}: ${result.message}`);
+                    // Optionally, update participant status to 'Failed'
+                    updateDocumentNonBlocking(participantRef, { certificateStatus: 'Failed' });
+                }
+             });
+        }
+        
+        processedCount++;
+        setProgress((processedCount / participantsForEvent.length) * 100);
     });
+
+    // Since operations are non-blocking, we can immediately show completion
+    setGenerationStatus('success');
+    setIsProcessing(false); // Update UI to show completion
   };
   
   const resetWorkflow = () => {
@@ -302,14 +327,12 @@ export default function CertificatesView() {
                         </Button>
                     </>)}
                 {isProcessing && (
-                    <>
-                         <div className="flex flex-col items-center gap-4">
-                            <CheckCircle className="size-16 text-green-500" />
-                            <h3 className="text-xl font-semibold">Processing...</h3>
-                            <p className="text-muted-foreground">Your certificates are being generated and sent.</p>
-                            <Button onClick={resetWorkflow}>Start a New Batch</Button>
-                        </div>
-                    </>
+                     <div className="flex flex-col items-center gap-4">
+                        <Loader2 className="size-16 text-primary animate-spin" />
+                        <h3 className="text-xl font-semibold">Processing...</h3>
+                        <p className="text-muted-foreground">Your certificates are being generated and sent.</p>
+                        <Progress value={progress} className="w-1/2" />
+                    </div>
                 )}
                 {generationStatus === 'success' && !isProcessing && (
                     <div className="flex flex-col items-center gap-4">
