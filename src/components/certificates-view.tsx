@@ -13,8 +13,9 @@ import { availableFields, CertificateTemplate as TemplateType, Event, Participan
 import AiSuggestion from './ai-suggestion';
 import CertificatePreview from './certificate-preview';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 
 type FormData = {
@@ -32,7 +33,7 @@ export default function CertificatesView() {
     customFields: availableFields.filter(f => f.required).map(f => f.id),
     deliveryMethods: [],
   });
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState<'success' | 'failed' | null>(null);
 
@@ -67,71 +68,46 @@ export default function CertificatesView() {
     }));
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!firestore || !participantsForEvent || participantsForEvent.length === 0) {
       toast({ title: 'No participants to process', variant: 'destructive' });
       return;
     }
 
-    setIsGenerating(true);
-    setProgress(0);
-    setGenerationStatus(null);
+    // Optimistically update UI
+    setIsProcessing(true);
+    setProgress(100); // Show completion instantly
+    setGenerationStatus('success');
+    toast({
+        title: 'Processing Started!',
+        description: `${participantsForEvent.length} certificates are being generated in the background.`,
+    });
 
-    const totalParticipants = participantsForEvent.length;
-    const batch = writeBatch(firestore);
+    // Perform non-blocking writes
     const certificatesCollection = collection(firestore, 'certificates');
     
-    try {
-      for (let i = 0; i < totalParticipants; i++) {
-        const participant = participantsForEvent[i];
-        
-        // 1. Create a new certificate document
-        const newCertificateRef = doc(certificatesCollection);
-        batch.set(newCertificateRef, {
+    participantsForEvent.forEach(participant => {
+        // 1. Create a new certificate document (non-blocking)
+        addDocumentNonBlocking(certificatesCollection, {
             eventId: formData.eventId,
-            userId: participant.id, // Using participant ID as the user reference
+            userId: participant.id,
             templateId: formData.templateId,
             issueDate: serverTimestamp(),
-            web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`, // Simulated hash
+            web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
             deliveryMethod: formData.deliveryMethods.join(', '),
             deliveryStatus: 'Sent',
         });
 
-        // 2. Update the participant's certificate status
+        // 2. Update the participant's certificate status (non-blocking)
         const participantRef = doc(firestore, 'participants', participant.id);
-        batch.update(participantRef, { certificateStatus: 'Sent' });
-
-        // 3. Update progress
-        setProgress(Math.round(((i + 1) / totalParticipants) * 100));
-        // A small delay to make progress visible for small batches
-        await new Promise(res => setTimeout(res, 50)); 
-      }
-
-      await batch.commit();
-
-      setGenerationStatus('success');
-      toast({
-        title: 'Success!',
-        description: `${totalParticipants} certificates have been generated and sent.`,
-      });
-
-    } catch (error: any) {
-        console.error("Certificate generation failed:", error);
-        setGenerationStatus('failed');
-        toast({
-            title: 'Generation Failed',
-            description: error.message || 'An unexpected error occurred.',
-            variant: 'destructive',
-        });
-    } finally {
-        setIsGenerating(false);
-    }
+        updateDocumentNonBlocking(participantRef, { certificateStatus: 'Sent' });
+    });
   };
   
   const resetWorkflow = () => {
     setStep(1);
     setFormData({ eventId: '', templateId: '', customFields: availableFields.filter(f => f.required).map(f => f.id), deliveryMethods: [] });
-    setIsGenerating(false);
+    setIsProcessing(false);
     setProgress(0);
     setGenerationStatus(null);
   };
@@ -254,7 +230,7 @@ export default function CertificatesView() {
 
         {step === 5 && (
             <div className="text-center">
-                {!isGenerating && !generationStatus && (
+                {!isProcessing && !generationStatus && (
                     <>
                         <h3 className="font-semibold mb-2">Ready to Generate?</h3>
                         <p className="text-muted-foreground mb-4">A summary of your selections:</p>
@@ -268,14 +244,17 @@ export default function CertificatesView() {
                             Generate {(participantsForEvent?.length ?? 0)} Certificates
                         </Button>
                     </>)}
-                {isGenerating && (
+                {isProcessing && (
                     <>
-                        <h3 className="font-semibold mb-4">Generating Certificates...</h3>
-                        <Progress value={progress} className="w-full max-w-md mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">{progress}% complete</p>
+                         <div className="flex flex-col items-center gap-4">
+                            <CheckCircle className="size-16 text-green-500" />
+                            <h3 className="text-xl font-semibold">Processing...</h3>
+                            <p className="text-muted-foreground">Your certificates are being generated and sent.</p>
+                            <Button onClick={resetWorkflow}>Start a New Batch</Button>
+                        </div>
                     </>
                 )}
-                {generationStatus === 'success' && (
+                {generationStatus === 'success' && !isProcessing && (
                     <div className="flex flex-col items-center gap-4">
                         <CheckCircle className="size-16 text-green-500" />
                         <h3 className="text-xl font-semibold">Generation Complete!</h3>
@@ -287,15 +266,15 @@ export default function CertificatesView() {
                      <div className="flex flex-col items-center gap-4">
                         <XCircle className="size-16 text-destructive" />
                         <h3 className="text-xl font-semibold">Generation Failed</h3>
-                        <p className="text-muted-foreground">Something went wrong. Please try again.</p>
-                        <Button onClick={resetWorkflow} variant="destructive">Try Again</Button>
+                        <p className="text-muted-foreground">Something went wrong. Please check the console and try again.</p>
+                        <Button onClick={handleGenerate} variant="destructive">Try Again</Button>
                     </div>
                 )}
             </div>
         )}
 
         <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={handlePrev} disabled={step === 1 || isGenerating || !!generationStatus}>
+          <Button variant="outline" onClick={handlePrev} disabled={step === 1 || isProcessing || !!generationStatus}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Previous
           </Button>
           {step < 5 ? (

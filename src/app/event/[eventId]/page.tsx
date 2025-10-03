@@ -3,8 +3,8 @@
 
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirestore } from '@/firebase';
-import { doc, collection, addDoc, runTransaction } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, collection, runTransaction, addDoc } from 'firebase/firestore';
 import type { Event, Participant } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar, Users, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 function RegistrationForm({ eventId, onSuccessfulRegistration }: { eventId: string, onSuccessfulRegistration: () => void }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,39 +46,47 @@ function RegistrationForm({ eventId, onSuccessfulRegistration }: { eventId: stri
             return;
         }
 
-        try {
-            await runTransaction(firestore, async (transaction) => {
-                // 1. Add participant to the 'participants' collection
-                const participantsCollection = collection(firestore, 'participants');
-                addDoc(participantsCollection, participantData);
-    
-                // 2. Increment the participantCount on the event
-                const eventRef = doc(firestore, 'events', eventId);
-                const eventDoc = await transaction.get(eventRef);
-                if (!eventDoc.exists()) {
-                    throw new Error("Event does not exist!");
-                }
-                const newCount = (eventDoc.data().participantCount || 0) + 1;
-                transaction.update(eventRef, { participantCount: newCount });
-            });
+        const eventRef = doc(firestore, 'events', eventId);
+        
+        // Optimistically update UI
+        onSuccessfulRegistration();
+        (e.target as HTMLFormElement).reset();
+        setIsSubmitting(false);
+        toast({
+            title: 'Registration Submitted!',
+            description: `We're processing your registration for the event.`,
+        });
 
-            toast({
-                title: 'Registration Successful!',
-                description: `You are now registered for the event.`,
-            });
-            onSuccessfulRegistration();
-            (e.target as HTMLFormElement).reset();
+        // Non-blocking transaction
+        runTransaction(firestore, async (transaction) => {
+            const participantsCollection = collection(firestore, 'participants');
+            const newParticipantRef = doc(participantsCollection);
+            
+            transaction.set(newParticipantRef, participantData);
 
-        } catch (error: any) {
-            console.error('Registration failed:', error);
-            toast({
+            const eventDoc = await transaction.get(eventRef);
+            if (!eventDoc.exists()) {
+                throw new Error("Event does not exist!");
+            }
+            const newCount = (eventDoc.data().participantCount || 0) + 1;
+            transaction.update(eventRef, { participantCount: newCount });
+        }).catch(error => {
+             console.error('Registration failed:', error);
+             toast({
                 title: 'Registration Failed',
-                description: error.message || 'An unexpected error occurred.',
+                description: 'Your registration could not be processed. Please try again.',
                 variant: 'destructive',
             });
-        } finally {
-            setIsSubmitting(false);
-        }
+            // Here you could potentially revert the optimistic UI changes if needed
+            errorEmitter.emit(
+                'permission-error',
+                new FirestorePermissionError({
+                  path: eventRef.path,
+                  operation: 'update',
+                  requestResourceData: { participantCount: 'increment' },
+                })
+              );
+        });
     };
 
     return (
@@ -113,7 +123,7 @@ function RegistrationForm({ eventId, onSuccessfulRegistration }: { eventId: stri
                     </div>
                     <Button type="submit" disabled={isSubmitting} className="w-full">
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        {isSubmitting ? 'Registering...' : 'Register Now'}
+                        {isSubmitting ? 'Submitting...' : 'Register Now'}
                     </Button>
                 </form>
             </CardContent>
@@ -130,7 +140,7 @@ export default function EventPage() {
     const { toast } = useToast();
     const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
-    const eventRef = doc(firestore, 'events', eventId);
+    const eventRef = useMemoFirebase(() => eventId ? doc(firestore, 'events', eventId) : null, [firestore, eventId]);
     const { data: event, isLoading, error } = useDoc<Event>(eventRef);
 
     if (isLoading) {
@@ -196,11 +206,4 @@ export default function EventPage() {
                                 </CardContent>
                             </Card>
                         ) : (
-                           <RegistrationForm eventId={eventId} onSuccessfulRegistration={handleSuccess} />
-                        )}
-                    </div>
-                </div>
-            </main>
-        </div>
-    );
-}
+                           <Registration
