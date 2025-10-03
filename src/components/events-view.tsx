@@ -28,7 +28,7 @@ export default function EventsView() {
     <div className="space-y-6">
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold tracking-tight">Events</h2>
-             <Button asChild>
+             <Button asChild className="transition-transform hover:-translate-y-1">
                 <Link href="/events/new">
                     <Plus className="mr-2 h-4 w-4" /> Create Event
                 </Link>
@@ -54,7 +54,7 @@ export default function EventsView() {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {events?.map(event => (
-                <Card key={event.id} className="flex flex-col justify-between hover:shadow-lg transition-shadow duration-300">
+                <Card key={event.id} className="flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-2">
                     <CardHeader>
                         <div className="flex justify-between items-start">
                              <CardTitle className="mb-2 pr-2">{event.title}</CardTitle>
