@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Event": {
@@ -24,8 +25,8 @@
           "description": "Category of the event (e.g., Tech, Business, Education, Art)."
         },
         "participantCount": {
-            "type": "number",
-            "description": "The number of participants registered for the event."
+          "type": "number",
+          "description": "The number of participants registered for the event."
         }
       },
       "required": [
@@ -70,7 +71,11 @@
         "certificateStatus": {
           "type": "string",
           "description": "Status of the certificate for this participant.",
-          "enum": ["Not Sent", "Sent", "Failed"]
+          "enum": [
+            "Not Sent",
+            "Sent",
+            "Failed"
+          ]
         }
       },
       "required": [
@@ -87,21 +92,17 @@
       "type": "object",
       "description": "Represents a certificate issued for an event participant.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the certificate entity."
-        },
         "eventId": {
           "type": "string",
           "description": "Reference to Event. (Relationship: Event 1:N Certificate)"
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Certificate)"
+          "description": "Reference to User (Participant). (Relationship: User 1:N Certificate)"
         },
         "templateId": {
           "type": "string",
-          "description": "Reference to CertificateTemplate. (Relationship: CertificateTemplate 1:N Certificate)"
+          "description": "Reference to CertificateTemplate."
         },
         "issueDate": {
           "type": "string",
@@ -122,7 +123,6 @@
         }
       },
       "required": [
-        "id",
         "eventId",
         "userId",
         "templateId",
@@ -198,17 +198,17 @@
       {
         "path": "/participants/{participantId}",
         "definition": {
-            "entityName": "Participant",
-            "schema": {
-                "$ref": "#/entities/Participant"
-            },
-            "description": "Stores participant registration and certificate status information for all events.",
-            "params": [
-                {
-                    "name": "participantId",
-                    "description": "Unique identifier for the participant entry."
-                }
-            ]
+          "entityName": "Participant",
+          "schema": {
+            "$ref": "#/entities/Participant"
+          },
+          "description": "Stores participant registration and certificate status information for all events.",
+          "params": [
+            {
+              "name": "participantId",
+              "description": "Unique identifier for the participant entry."
+            }
+          ]
         }
       },
       {
@@ -246,3 +246,5 @@
     ]
   }
 }
+
+    

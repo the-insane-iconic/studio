@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,8 @@ import { availableFields, CertificateTemplate as TemplateType, Event, Participan
 import AiSuggestion from './ai-suggestion';
 import CertificatePreview from './certificate-preview';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 type FormData = {
@@ -36,6 +38,7 @@ export default function DashboardView() {
   const [generationStatus, setGenerationStatus] = useState<'success' | 'failed' | null>(null);
 
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
   const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
@@ -65,21 +68,65 @@ export default function DashboardView() {
     }));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!participantsForEvent || participantsForEvent.length === 0) {
+      toast({ title: 'No participants to process', variant: 'destructive' });
+      return;
+    }
+
     setIsGenerating(true);
     setProgress(0);
     setGenerationStatus(null);
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          setGenerationStatus('success');
-          return 100;
-        }
-        return prev + 10;
+
+    const totalParticipants = participantsForEvent.length;
+    const batch = writeBatch(firestore);
+    const certificatesCollection = collection(firestore, 'certificates');
+    
+    try {
+      for (let i = 0; i < totalParticipants; i++) {
+        const participant = participantsForEvent[i];
+        
+        // 1. Create a new certificate document
+        const newCertificateRef = doc(certificatesCollection);
+        batch.set(newCertificateRef, {
+            eventId: formData.eventId,
+            userId: participant.id, // Using participant ID as the user reference
+            templateId: formData.templateId,
+            issueDate: serverTimestamp(),
+            web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`, // Simulated hash
+            deliveryMethod: formData.deliveryMethods.join(', '),
+            deliveryStatus: 'Sent',
+        });
+
+        // 2. Update the participant's certificate status
+        const participantRef = doc(firestore, 'participants', participant.id);
+        batch.update(participantRef, { certificateStatus: 'Sent' });
+
+        // 3. Update progress
+        setProgress(Math.round(((i + 1) / totalParticipants) * 100));
+        // A small delay to make progress visible for small batches
+        await new Promise(res => setTimeout(res, 50)); 
+      }
+
+      await batch.commit();
+
+      setGenerationStatus('success');
+      toast({
+        title: 'Success!',
+        description: `${totalParticipants} certificates have been generated and sent.`,
       });
-    }, 200);
+
+    } catch (error: any) {
+        console.error("Certificate generation failed:", error);
+        setGenerationStatus('failed');
+        toast({
+            title: 'Generation Failed',
+            description: error.message || 'An unexpected error occurred.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsGenerating(false);
+    }
   };
   
   const resetWorkflow = () => {
@@ -218,7 +265,7 @@ export default function DashboardView() {
                             <p><strong>Template:</strong> {certificateTemplates.find(t => t.id === formData.templateId)?.name || 'N/A'}</p>
                             <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.join(', ') || 'N/A'}</p>
                         </div>
-                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0 || isLoadingParticipants}>
+                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
                             Generate {(participantsForEvent?.length ?? 0)} Certificates
                         </Button>
                     </>)}
@@ -262,3 +309,5 @@ export default function DashboardView() {
     </Card>
   );
 }
+
+    
