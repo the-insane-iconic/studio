@@ -59,16 +59,12 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
         
         try {
             await runTransaction(firestore, async (transaction) => {
-                // ALL READS MUST COME BEFORE ALL WRITES
                 const eventDoc = await transaction.get(eventRef);
                 if (!eventDoc.exists()) {
                     throw new Error("Event does not exist!");
                 }
 
-                // NOW WE CAN DO THE WRITES
-                const participantsCollection = collection(firestore, 'participants');
-                const newParticipantRef = doc(participantsCollection);
-                
+                const newParticipantRef = doc(collection(firestore, 'participants'));
                 transaction.set(newParticipantRef, participantData);
                 
                 const newCount = (eventDoc.data().participantCount || 0) + 1;
@@ -83,20 +79,20 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
             setOpen(false);
 
         } catch (error) {
-             console.error('Registration failed:', error);
              toast({
                 title: 'Registration Failed',
                 description: 'The new participant could not be added. Please try again.',
                 variant: 'destructive',
             });
-            errorEmitter.emit(
-                'permission-error',
-                new FirestorePermissionError({
-                  path: eventRef.path,
-                  operation: 'update',
-                  requestResourceData: { participantCount: 'increment' },
-                })
-              );
+
+            // This creates the detailed, contextual error and emits it globally.
+            const permissionError = new FirestorePermissionError({
+              path: eventRef.path, // The resource being acted on
+              operation: 'update',  // The operation that likely failed
+              requestResourceData: { participantCount: 'increment(1)' } // The intended change
+            });
+            errorEmitter.emit('permission-error', permissionError);
+
         } finally {
             setIsSubmitting(false);
         }
@@ -270,7 +266,3 @@ export default function EventPage() {
         </div>
     );
 }
-
-    
-
-    
