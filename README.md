@@ -3,25 +3,31 @@
 
 EventChain Pro is a comprehensive, modern web application designed to streamline event and certificate management. It empowers administrators to create events, manage participants, and automate the generation and distribution of secure, verifiable certificates with ease.
 
-The application leverages a modern tech stack, including Next.js, Firebase, and Genkit for AI-powered features, to provide a seamless and professional user experience.
-
 ![EventChain Pro Dashboard](https://storage.googleapis.com/llm-assets/studio-docs/eventchain-screenshot.png)
 
 ## Key Features
 
-- **Full Event Lifecycle Management**: Create, view, and manage events, including details like title, description, date, and category.
-- **Participant Registration**: Easily add and track participants for each event, with a live-updating list and status view.
-- **5-Step Certificate Workflow**: An intuitive, step-by-step process to generate and distribute certificates efficiently.
-- **AI-Powered Design & Suggestions**:
-    - **AI Template Suggestions**: Get intelligent recommendations for certificate templates based on event details.
-    - **AI Background Generation**: Create unique, professional certificate backgrounds from a simple text prompt using generative AI.
-- **Multiple Certificate Templates**: Choose from several pre-designed templates (Classic, Modern, etc.) or use the AI-generated design for a unique look.
-- **Automated Email Delivery**: Certificates are automatically sent to participants' email inboxes via a secure, integrated email flow.
 - **QR Code Verification System**:
     - Admins can generate a unique QR code for each event.
     - Participants can scan the QR code to access a public verification page.
     - By entering their email, participants can securely find and download their specific certificate.
+
+- **AI-Powered Design & Suggestions**:
+    - **AI Background Generation**: Create unique, professional certificate backgrounds from a simple text prompt using generative AI.
+    - **AI Template Suggestions**: Get intelligent recommendations for certificate templates based on event details.
+
+- **5-Step Certificate Workflow**: An intuitive, step-by-step process to generate and distribute certificates efficiently, from event selection to final delivery.
+
+- **Full Event & Participant Management**: 
+    - Create, view, and manage events, including details like title, description, date, and category.
+    - Easily add and track participants for each event, with a live-updating list and status view.
+
+- **Automated Email Delivery**: Certificates are automatically sent to participants' email inboxes via a secure, integrated email flow.
+
+- **Multiple Certificate Templates**: Choose from several pre-designed templates (Classic, Modern, etc.) or use the AI-generated design for a unique look.
+
 - **Real-time Data with Firestore**: All data for events, participants, and certificates is stored in Firestore and updated in the UI in real-time.
+
 - **Secure Authentication**: The application uses Firebase Authentication for secure access.
 
 ## Technology Stack
