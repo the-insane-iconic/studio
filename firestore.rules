@@ -1,98 +1,97 @@
 /**
- * @fileoverview Firestore Security Rules for EventChain.
+ * @fileoverview Firestore Security Rules for EventChain System
  *
  * Core Philosophy:
- * This ruleset prioritizes strong authorization by strictly controlling access
- * to resources. It assumes a public read with restricted write access model for
- * top-level collections, but requires data to be created with the correct ownership
- * fields. All write operations are validated for authorization, while schema validation
- * is relaxed to allow for rapid prototyping.
+ * This ruleset prioritizes public read access for events to facilitate discovery, while enforcing strict
+ * authentication and authorization for data modification. All write operations require a valid user
+ * to be signed in.
  *
  * Data Structure:
- * - /events/{eventId}: Publicly readable event data, writable only by the event creator.
- * - /participants/{participantId}: Publicly readable participant data, writable only by the creator.
- * - /certificates/{certificateId}: Publicly readable certificate data, writable only by the creator.
- * - /certificateTemplates/{certificateTemplateId}: Publicly readable certificate template data, writable only by the creator.
+ * - /events/{eventId}: Stores public event information.
+ * - /participants/{participantId}: Stores participant registration details, accessible to authenticated users.
+ * - /certificates/{certificateId}: Stores certificate data for events.
+ * - /certificateTemplates/{certificateTemplateId}: Stores reusable certificate templates.
  *
  * Key Security Decisions:
- * - Public read access is enabled for all top-level collections to facilitate listing and discovery.
- * - Write access is restricted to document creators, enforced by validating the
- *   presence and correctness of ownership fields (e.g., authorId) on creation.
- * - Update operations enforce the immutability of ownership fields to maintain
- *   relational integrity.
- * - List operations are enabled for owners to allow listing of their own resources.
+ * - Events are publicly readable, but writes are restricted.
+ * - Only authenticated users can register as participants.
+ * - Data validation is relaxed to allow for rapid prototyping but will be critical for production.
+ *
+ * Denormalization for Authorization:
+ * - The rules do not denormalize data at this stage.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to the /events/{eventId} collection.
+     * @description Grants public read access to event data and restricts write access to authenticated users only.
      * @path /events/{eventId}
-     * @allow (get, list): Any user can read event details.
-     * @allow (create): Only authenticated users can create an event, provided 'authorId' matches their UID.
-     * @allow (update, delete): Only the event creator (identified by 'authorId') can modify or delete the event.
-     * @deny (create): If the 'authorId' does not match the request.auth.uid.
-     * @deny (update, delete): If the user is not the author.
-     * @principle Public Read with Owner-Only Writes; Relational Integrity.
+     * @allow (get, list): Anyone can read event data.
+     * @allow (create, update, delete): Only authenticated users can modify event data.
+     * @deny (create, update, delete): Unauthenticated users cannot modify event data.
+     * @principle Allows public read access and restricts write access to authenticated users only.
      */
     match /events/{eventId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(eventId, 'events');
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to the /participants/{participantId} collection.
+     * @description Allows authenticated users to create, read, update, and delete participant data.
      * @path /participants/{participantId}
-     * @allow (get, list): Any user can read participant details.
-     * @allow (create): Only authenticated users can create an participant, provided 'authorId' matches their UID.
-     * @allow (update, delete): Only the participant creator (identified by 'authorId') can modify or delete the participant.
-     * @deny (create): If the 'authorId' does not match the request.auth.uid.
-     * @deny (update, delete): If the user is not the author.
+     * @allow (create, get, list, update, delete): Only authenticated users can manage participant data.
+     * @deny (create, get, list, update, delete): Unauthenticated users cannot manage participant data.
+     * @principle Enforces access control for participant data to authenticated users only.
      */
     match /participants/{participantId} {
-      allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(participantId, 'participants');
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to the /certificates/{certificateId} collection.
+     * @description Allows authenticated users to create, read, update, and delete certificate data.
      * @path /certificates/{certificateId}
-     * @allow (get, list): Any user can read certificate details.
-     * @allow (create): Only authenticated users can create an certificate, provided 'authorId' matches their UID.
-     * @allow (update, delete): Only the certificate creator (identified by 'authorId') can modify or delete the certificate.
-     * @deny (create): If the 'authorId' does not match the request.auth.uid.
-     * @deny (update, delete): If the user is not the author.
+     * @allow (create, get, list, update, delete): Only authenticated users can manage certificate data.
+     * @deny (create, get, list, update, delete): Unauthenticated users cannot manage certificate data.
+     * @principle Enforces access control for certificate data to authenticated users only.
      */
     match /certificates/{certificateId} {
-      allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(certificateId, 'certificates');
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
-        /**
-     * @description Controls access to the /certificateTemplates/{certificateTemplateId} collection.
+    /**
+     * @description Allows authenticated users to create, read, update, and delete certificate template data.
      * @path /certificateTemplates/{certificateTemplateId}
-     * @allow (get, list): Any user can read certificate details.
-     * @allow (create): Only authenticated users can create an certificate, provided 'authorId' matches their UID.
-     * @allow (update, delete): Only the certificate creator (identified by 'authorId') can modify or delete the certificate.
-     * @deny (create): If the 'authorId' does not match the request.auth.uid.
-     * @deny (update, delete): If the user is not the author.
+     * @allow (create, get, list, update, delete): Only authenticated users can manage certificate template data.
+     * @deny (create, get, list, update, delete): Unauthenticated users cannot manage certificate template data.
+     * @principle Enforces access control for certificate template data to authenticated users only.
      */
     match /certificateTemplates/{certificateTemplateId} {
-          allow get, list: if true;
-          allow create: if isSignedIn();
-          allow update, delete: if isOwner(certificateTemplateId, 'certificateTemplates');
+      allow create: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
+    /**
+     * @description Defines the isSignedIn function, which returns true if the request is authenticated.
+     * @return {boolean} True if the request is authenticated, false otherwise.
+     * @principle Verifies user authentication.
+     */
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isOwner(resourceId, collectionName) {
-        return get(/databases/$(database)/documents/$(collectionName)/$(resourceId)).data.authorId == request.auth.uid;
     }
   }
 }
