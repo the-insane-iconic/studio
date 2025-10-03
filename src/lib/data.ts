@@ -50,14 +50,14 @@ export const certificateTemplates: CertificateTemplate[] = [
         name: 'Classic Professional',
         description: 'A timeless design for formal recognition.',
         theme: 'blue',
-        orientation: 'portrait',
+        orientation: 'landscape',
     },
     {
         id: 'modern',
         name: 'Modern Minimalist',
         description: 'A sleek, dark-themed design for contemporary events.',
         theme: 'dark',
-        orientation: 'portrait',
+        orientation: 'landscape',
     },
     {
         id: 'web3',
@@ -71,6 +71,13 @@ export const certificateTemplates: CertificateTemplate[] = [
         name: 'Creative Design',
         description: 'A vibrant and artistic template for creative achievements.',
         theme: 'pink',
-        orientation: 'portrait',
+        orientation: 'landscape',
+    },
+     {
+        id: 'ai',
+        name: 'AI Generated Design',
+        description: 'Generate a unique design using AI based on your event.',
+        theme: 'ai',
+        orientation: 'landscape',
     },
 ];

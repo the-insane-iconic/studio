@@ -10,6 +10,7 @@ import { certificateTemplates } from '@/lib/data';
 interface CertificatePreviewProps {
   templateId: CertificateTemplate['id'] | '';
   fields: string[];
+  aiDesignUrl?: string | null;
 }
 
 const themeClasses = {
@@ -48,6 +49,15 @@ const themeClasses = {
         accent: 'text-pink-600 dark:text-pink-300',
         title: 'font-serif italic',
         seal: 'text-pink-500'
+    },
+    ai: { // For AI Generated
+        bg: 'bg-background', // Will be covered by image
+        border: 'border-white/50',
+        outerBorder: 'border-white/20',
+        text: 'text-white',
+        accent: 'text-white',
+        title: 'font-serif tracking-wide',
+        seal: 'text-white/80'
     }
 }
 
@@ -62,12 +72,12 @@ const FieldIcon = ({ fieldId }: { fieldId: string }) => {
     return icons[fieldId] || null;
 }
 
-export default function CertificatePreview({ templateId, fields }: CertificatePreviewProps) {
+export default function CertificatePreview({ templateId, fields, aiDesignUrl }: CertificatePreviewProps) {
   const template = certificateTemplates.find(t => t.id === templateId);
 
   if (!template) {
     return (
-      <div className="aspect-[1.2/1] w-full bg-muted rounded-lg flex flex-col items-center justify-center text-muted-foreground text-center p-4">
+      <div className="aspect-video w-full bg-muted rounded-lg flex flex-col items-center justify-center text-muted-foreground text-center p-4">
         <Award className="w-8 h-8 mb-2" />
         <p>Select a template to see a preview</p>
       </div>
@@ -75,37 +85,42 @@ export default function CertificatePreview({ templateId, fields }: CertificatePr
   }
 
   const theme = themeClasses[template.theme];
-  const isLandscape = template.orientation === 'landscape';
 
   return (
     <div className={cn(
-        "w-full rounded-lg flex flex-col p-3 shadow-md",
+        "w-full rounded-lg flex flex-col p-2 shadow-md relative overflow-hidden",
         theme.bg,
-        isLandscape ? 'aspect-video' : 'aspect-[1/1.414]'
+        'aspect-video'
     )}>
+        {template.id === 'ai' && aiDesignUrl && (
+            <img src={aiDesignUrl} alt="AI Generated Certificate Background" className="absolute inset-0 w-full h-full object-cover z-0" />
+        )}
+        {/* Adds a semi-transparent overlay for AI images to ensure text is readable */}
+        {template.id === 'ai' && <div className="absolute inset-0 bg-black/40 z-0"/>}
+        
         <div className={cn(
-            "w-full h-full border-2 rounded-md flex flex-col p-2", 
+            "w-full h-full border rounded-md flex flex-col p-1 z-10", 
             theme.outerBorder
         )}>
             <div className={cn(
-                "w-full h-full border rounded-sm flex flex-col items-center justify-between p-4 md:p-6 text-center",
+                "w-full h-full border rounded-sm flex flex-col items-center justify-between p-4 text-center",
                 theme.border
             )}>
                 
                 <div className="w-full">
-                    <p className={cn("text-xs md:text-sm tracking-wider", theme.text)}>Certificate of Completion</p>
-                    <div className="w-2/3 h-[1px] mx-auto my-2" style={{ backgroundColor: theme.border.split('-')[1] ? `hsl(var(--${theme.border.split('-')[1]}))` : 'currentColor' }} />
-                    <p className={cn("text-sm md:text-base font-semibold", theme.accent)}>This certificate is awarded to</p>
+                    <p className={cn("text-sm tracking-wider", theme.text)}>Certificate of Completion</p>
+                    <div className="w-2/3 h-[1px] mx-auto my-1 bg-current" style={{opacity: 0.5}} />
+                    <p className={cn("text-base font-semibold", theme.accent)}>This certificate is awarded to</p>
                 </div>
 
-                <div className="my-4">
-                    <h2 className={cn("text-3xl md:text-4xl font-bold", theme.accent, theme.title)}>
+                <div className="my-2">
+                    <h2 className={cn("text-4xl font-bold", theme.accent, theme.title)}>
                         {fields.includes('name') ? 'Participant Name' : '...'}
                     </h2>
-                    <p className={cn("mt-2 text-sm max-w-xs", theme.text)}>
+                    <p className={cn("mt-1 text-sm max-w-xs", theme.text)}>
                         For successfully completing the
                     </p>
-                     <p className={cn("mt-1 text-base md:text-lg font-bold", theme.accent)}>
+                     <p className={cn("mt-1 text-lg font-bold", theme.accent)}>
                         {fields.includes('eventName') ? 'Event Name' : '...'}
                     </p>
                 </div>
@@ -114,7 +129,7 @@ export default function CertificatePreview({ templateId, fields }: CertificatePr
                      <p className={cn("", theme.text)}>
                         on {fields.includes('date') ? new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '...'}
                     </p>
-                    <div className="mt-6 flex justify-between items-end gap-4">
+                    <div className="mt-4 flex justify-between items-end gap-4">
                         <div className="flex flex-col items-center gap-1 w-1/3">
                             <p className={cn("border-b w-full text-center pb-1 font-semibold", theme.border)}>
                                 {fields.includes('issuer') ? 'Issuer Name' : '...'}
@@ -131,7 +146,7 @@ export default function CertificatePreview({ templateId, fields }: CertificatePr
                             <p className={cn("text-xs", theme.text)}>Signature</p>
                         </div>
                     </div>
-                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-4">
+                     <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs mt-2">
                         {fields.filter(f => !['name', 'eventName', 'date', 'issuer', 'signature'].includes(f)).map(field => (
                              <div key={field} className={cn("flex items-center justify-center gap-1.5", theme.text)}>
                                 <FieldIcon fieldId={field} />

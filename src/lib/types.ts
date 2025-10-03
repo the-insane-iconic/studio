@@ -28,13 +28,14 @@ export type Certificate = {
     web3Hash: string;
     deliveryMethod: string;
     deliveryStatus: string;
+    designDataUrl?: string; // To store AI-generated design
 }
 
 export type CertificateTemplate = {
-  id: 'classic' | 'modern' | 'web3' | 'creative';
+  id: 'classic' | 'modern' | 'web3' | 'creative' | 'ai';
   name: string;
   description: string;
-  theme: 'blue' | 'dark' | 'green' | 'pink';
+  theme: 'blue' | 'dark' | 'green' | 'pink' | 'ai';
   orientation: 'portrait' | 'landscape';
 };
 

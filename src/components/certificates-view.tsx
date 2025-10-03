@@ -2,12 +2,14 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { certificateTemplates } from '@/lib/data';
 import { availableFields, CertificateTemplate as TemplateType, Event, Participant } from '@/lib/types';
 import AiSuggestion from './ai-suggestion';
@@ -16,6 +18,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { generateCertificateDesign } from '@/ai/flows/generate-certificate-design';
 
 
 type FormData = {
@@ -23,7 +26,52 @@ type FormData = {
   templateId: TemplateType['id'] | '';
   customFields: string[];
   deliveryMethods: ('email' | 'whatsapp')[];
+  aiDesignUrl: string | null;
+  aiPrompt: string;
 };
+
+function AiDesignGenerator({ event, onDesignGenerated }: { event: Event, onDesignGenerated: (url: string) => void }) {
+    const [prompt, setPrompt] = useState(`A professional, abstract design for the event: "${event.title}"`);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleGenerateDesign = async () => {
+        setIsLoading(true);
+        try {
+            const result = await generateCertificateDesign({ prompt });
+            onDesignGenerated(result.designDataUrl);
+            toast({
+                title: "AI Design Generated!",
+                description: "Your unique certificate background is ready.",
+            });
+        } catch (e: any) {
+            toast({
+                title: "AI Design Error",
+                description: e.message || "Failed to generate design. Try a different prompt.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="mt-4 p-4 border rounded-lg bg-background space-y-4">
+            <h4 className="font-semibold">Generate a Unique Background</h4>
+            <p className="text-sm text-muted-foreground">Describe the visual theme you want for the certificate background. The AI will generate an image based on your prompt.</p>
+            <Textarea 
+                placeholder="e.g., 'A futuristic geometric pattern with blue and gold colors'"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+            />
+            <Button onClick={handleGenerateDesign} disabled={isLoading} className="w-full">
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Generate Design
+            </Button>
+        </div>
+    );
+}
+
 
 export default function CertificatesView() {
   const [step, setStep] = useState(1);
@@ -32,6 +80,8 @@ export default function CertificatesView() {
     templateId: '',
     customFields: availableFields.filter(f => f.required).map(f => f.id),
     deliveryMethods: [],
+    aiDesignUrl: null,
+    aiPrompt: '',
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -96,6 +146,7 @@ export default function CertificatesView() {
             web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
             deliveryMethod: formData.deliveryMethods.join(', '),
             deliveryStatus: 'Sent',
+            designDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl : null,
         });
 
         // 2. Update the participant's certificate status (non-blocking)
@@ -106,7 +157,7 @@ export default function CertificatesView() {
   
   const resetWorkflow = () => {
     setStep(1);
-    setFormData({ eventId: '', templateId: '', customFields: availableFields.filter(f => f.required).map(f => f.id), deliveryMethods: [] });
+    setFormData({ eventId: '', templateId: '', customFields: availableFields.filter(f => f.required).map(f => f.id), deliveryMethods: [], aiDesignUrl: null, aiPrompt: '' });
     setIsProcessing(false);
     setProgress(0);
     setGenerationStatus(null);
@@ -148,7 +199,7 @@ export default function CertificatesView() {
         {step === 2 && (
             <div>
                 <h3 className="font-semibold mb-4">Select a Template</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                     {certificateTemplates.map(template => (
                         <Card 
                             key={template.id} 
@@ -158,6 +209,7 @@ export default function CertificatesView() {
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     {formData.templateId === template.id && <Check className="text-primary" />}
+                                     {template.id === 'ai' ? <Sparkles className="text-accent" /> : null}
                                     {template.name}
                                 </CardTitle>
                                 <CardDescription>{template.description}</CardDescription>
@@ -165,7 +217,12 @@ export default function CertificatesView() {
                         </Card>
                     ))}
                 </div>
-                {selectedEvent && <AiSuggestion eventTitle={selectedEvent.title} eventDescription={selectedEvent.description} />}
+
+                {formData.templateId === 'ai' && selectedEvent && (
+                    <AiDesignGenerator event={selectedEvent} onDesignGenerated={(url) => setFormData(p => ({ ...p, aiDesignUrl: url }))} />
+                )}
+
+                {formData.templateId !== 'ai' && selectedEvent && <AiSuggestion eventTitle={selectedEvent.title} eventDescription={selectedEvent.description} />}
             </div>
         )}
 
@@ -191,7 +248,7 @@ export default function CertificatesView() {
                 </div>
                 <div>
                     <h3 className="font-semibold mb-4">Live Preview</h3>
-                    <CertificatePreview templateId={formData.templateId} fields={formData.customFields} />
+                    <CertificatePreview templateId={formData.templateId} fields={formData.customFields} aiDesignUrl={formData.aiDesignUrl} />
                 </div>
             </div>
         )}
@@ -240,7 +297,7 @@ export default function CertificatesView() {
                             <p><strong>Template:</strong> {certificateTemplates.find(t => t.id === formData.templateId)?.name || 'N/A'}</p>
                             <p><strong>Delivery Methods:</strong> {formData.deliveryMethods.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ') || 'N/A'}</p>
                         </div>
-                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
+                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || (formData.templateId === 'ai' && !formData.aiDesignUrl) || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
                             Generate {(participantsForEvent?.length ?? 0)} Certificates
                         </Button>
                     </>)}
@@ -278,7 +335,7 @@ export default function CertificatesView() {
             <ArrowLeft className="mr-2 h-4 w-4" /> Previous
           </Button>
           {step < 5 ? (
-            <Button onClick={handleNext} disabled={(step === 1 && !formData.eventId) || (step === 2 && !formData.templateId) || (step === 4 && formData.deliveryMethods.length === 0)}>
+            <Button onClick={handleNext} disabled={(step === 1 && !formData.eventId) || (step === 2 && !formData.templateId) || (step === 2 && formData.templateId === 'ai' && !formData.aiDesignUrl) || (step === 4 && formData.deliveryMethods.length === 0)}>
               Next <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : <div/>}
@@ -287,5 +344,3 @@ export default function CertificatesView() {
     </Card>
   );
 }
-
-    
