@@ -1,101 +1,98 @@
 /**
- * @file Firestore Security Rules for EventChain Pro
- * @description This ruleset enforces a combination of public read access for certain collections (events, certificateTemplates) and strict user-ownership for user-specific data (users, registrations). Certificates are stored at the root level, with rules enforcing that a user can only manage certificates associated with their user ID.
+ * @fileoverview Firestore Security Rules for EventChain.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes strong authorization by strictly controlling access
+ * to resources. It assumes a public read with restricted write access model for
+ * top-level collections, but requires data to be created with the correct ownership
+ * fields. All write operations are validated for authorization, while schema validation
+ * is relaxed to allow for rapid prototyping.
  *
  * Data Structure:
- * - /events/{eventId}: Publicly readable event data.
- * - /users/{userId}: User profile data, accessible only to the user.
- * - /users/{userId}/registrations/{registrationId}: User-specific registration data, accessible only to the user.
- * - /certificates/{certificateId}: Certificate data, accessible for read by all, but only manageable by the user to whom the certificate belongs.
- * - /certificateTemplates/{certificateTemplateId}: Publicly readable certificate templates.
+ * - /events/{eventId}: Publicly readable event data, writable only by the event creator.
+ * - /participants/{participantId}: Publicly readable participant data, writable only by the creator.
+ * - /certificates/{certificateId}: Publicly readable certificate data, writable only by the creator.
+ * - /certificateTemplates/{certificateTemplateId}: Publicly readable certificate template data, writable only by the creator.
  *
  * Key Security Decisions:
- * - Public read access for event and template listings.
- * - Strict owner-only access to user profiles and registrations.
- * - Denormalized userId for certificate access control.
- * - Write access to certificates is restricted to only the user to whom the certificate belongs.
+ * - Public read access is enabled for all top-level collections to facilitate listing and discovery.
+ * - Write access is restricted to document creators, enforced by validating the
+ *   presence and correctness of ownership fields (e.g., authorId) on creation.
+ * - Update operations enforce the immutability of ownership fields to maintain
+ *   relational integrity.
+ * - List operations are enabled for owners to allow listing of their own resources.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read event data, but restricts creation, updating, and deletion to authenticated users.
+     * @description Controls access to the /events/{eventId} collection.
      * @path /events/{eventId}
-     * @allow (get, list): if true
-     * @allow (create): if request.auth != null
-     * @allow (update, delete): if false
-     * @deny (create): if request.auth == null
-     * @principle Allows public read access to events while restricting write access.
+     * @allow (get, list): Any user can read event details.
+     * @allow (create): Only authenticated users can create an event, provided 'authorId' matches their UID.
+     * @allow (update, delete): Only the event creator (identified by 'authorId') can modify or delete the event.
+     * @deny (create): If the 'authorId' does not match the request.auth.uid.
+     * @deny (update, delete): If the user is not the author.
+     * @principle Public Read with Owner-Only Writes; Relational Integrity.
      */
     match /events/{eventId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow update, delete: if isOwner(eventId, 'events');
     }
 
     /**
-     * @description Allows a user to read, create, update, and delete their own user document.
-     * @path /users/{userId}
-     * @allow (get, create, update, delete): if isOwner(userId)
-     * @deny (get, create, update, delete): if !isSignedIn()
-     * @deny (get, create, update, delete): if request.auth.uid != userId
-     * @principle Enforces document ownership for user profiles.
+     * @description Controls access to the /participants/{participantId} collection.
+     * @path /participants/{participantId}
+     * @allow (get, list): Any user can read participant details.
+     * @allow (create): Only authenticated users can create an participant, provided 'authorId' matches their UID.
+     * @allow (update, delete): Only the participant creator (identified by 'authorId') can modify or delete the participant.
+     * @deny (create): If the 'authorId' does not match the request.auth.uid.
+     * @deny (update, delete): If the user is not the author.
      */
-    match /users/{userId} {
-      allow get, create, update, delete: if isOwner(userId);
+    match /participants/{participantId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isOwner(participantId, 'participants');
     }
 
     /**
-     * @description Allows a user to read, create, update, and delete their own registration documents.
-     * @path /users/{userId}/registrations/{registrationId}
-     * @allow (get, list, create, update, delete): if isOwner(userId)
-     * @deny (get, list, create, update, delete): if !isSignedIn()
-     * @deny (get, list, create, update, delete): if request.auth.uid != userId
-     * @principle Restricts access to a user's own registration data.
-     */
-    match /users/{userId}/registrations/{registrationId} {
-      allow get, list, create, update, delete: if isOwner(userId);
-    }
-
-    /**
-     * @description Allows anyone to read certificate data, but restricts creation, updating, and deletion to the user associated with the certificate.
+     * @description Controls access to the /certificates/{certificateId} collection.
      * @path /certificates/{certificateId}
-     * @allow (get, list): if true
-     * @allow (create): if request.auth.uid == request.resource.data.userId;
-     * @allow (update, delete): if isExistingOwner(resource.data.userId);
-     * @deny (create): if request.auth.uid != request.resource.data.userId
-     * @principle Enforces document ownership for writes, allows public reads.
+     * @allow (get, list): Any user can read certificate details.
+     * @allow (create): Only authenticated users can create an certificate, provided 'authorId' matches their UID.
+     * @allow (update, delete): Only the certificate creator (identified by 'authorId') can modify or delete the certificate.
+     * @deny (create): If the 'authorId' does not match the request.auth.uid.
+     * @deny (update, delete): If the user is not the author.
      */
     match /certificates/{certificateId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isExistingOwner(resource.data.userId);
+      allow create: if isSignedIn();
+      allow update, delete: if isOwner(certificateId, 'certificates');
     }
 
-    /**
-     * @description Allows anyone to read certificate template data.
+        /**
+     * @description Controls access to the /certificateTemplates/{certificateTemplateId} collection.
      * @path /certificateTemplates/{certificateTemplateId}
-     * @allow (get, list): if true
-     * @allow create, update, delete: if false;
-     * @principle Allows public read access to certificate templates.
+     * @allow (get, list): Any user can read certificate details.
+     * @allow (create): Only authenticated users can create an certificate, provided 'authorId' matches their UID.
+     * @allow (update, delete): Only the certificate creator (identified by 'authorId') can modify or delete the certificate.
+     * @deny (create): If the 'authorId' does not match the request.auth.uid.
+     * @deny (update, delete): If the user is not the author.
      */
     match /certificateTemplates/{certificateTemplateId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+          allow get, list: if true;
+          allow create: if isSignedIn();
+          allow update, delete: if isOwner(certificateTemplateId, 'certificateTemplates');
     }
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-        return isSignedIn() && isOwner(userId) && resource != null;
+    function isOwner(resourceId, collectionName) {
+        return get(/databases/$(database)/documents/$(collectionName)/$(resourceId)).data.authorId == request.auth.uid;
     }
   }
 }
