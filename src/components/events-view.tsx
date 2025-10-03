@@ -70,7 +70,9 @@ export default function EventsView() {
                             <Users className="mr-2 h-4 w-4 text-muted-foreground"/>
                             {event.participantCount} Participants
                         </div>
-                        <Button variant="secondary" size="sm">Manage</Button>
+                        <Button variant="secondary" size="sm" asChild>
+                            <Link href={`/event/${event.id}`}>Manage</Link>
+                        </Button>
                     </CardFooter>
                 </Card>
             ))}

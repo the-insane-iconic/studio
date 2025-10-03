@@ -178,73 +178,29 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/events/{eventId}",
-        "definition": {
-          "entityName": "Event",
-          "schema": {
-            "$ref": "#/entities/Event"
-          },
-          "description": "Stores event details. Events are accessible at the root level to enable easy listing. ",
-          "params": [
-            {
-              "name": "eventId",
-              "description": "Unique identifier for the event."
-            }
-          ]
-        }
+    "/events/{eventId}": {
+      "schema": {
+        "$ref": "#/entities/Event"
       },
-      {
-        "path": "/participants/{participantId}",
-        "definition": {
-          "entityName": "Participant",
-          "schema": {
-            "$ref": "#/entities/Participant"
-          },
-          "description": "Stores participant registration and certificate status information for all events.",
-          "params": [
-            {
-              "name": "participantId",
-              "description": "Unique identifier for the participant entry."
-            }
-          ]
-        }
+      "description": "Stores event details. Events are accessible at the root level to enable easy listing. "
+    },
+    "/participants/{participantId}": {
+      "schema": {
+        "$ref": "#/entities/Participant"
       },
-      {
-        "path": "/certificates/{certificateId}",
-        "definition": {
-          "entityName": "Certificate",
-          "schema": {
-            "$ref": "#/entities/Certificate"
-          },
-          "description": "Stores certificate data. The certificateId is stored at the root level to be easily queriable.",
-          "params": [
-            {
-              "name": "certificateId",
-              "description": "Unique identifier for the certificate."
-            }
-          ]
-        }
+      "description": "Stores participant registration and certificate status information for all events."
+    },
+    "/certificates/{certificateId}": {
+      "schema": {
+        "$ref": "#/entities/Certificate"
       },
-      {
-        "path": "/certificateTemplates/{certificateTemplateId}",
-        "definition": {
-          "entityName": "CertificateTemplate",
-          "schema": {
-            "$ref": "#/entities/CertificateTemplate"
-          },
-          "description": "Stores certificate template designs.",
-          "params": [
-            {
-              "name": "certificateTemplateId",
-              "description": "Unique identifier for the certificate template."
-            }
-          ]
-        }
-      }
-    ]
+      "description": "Stores certificate data. The certificateId is stored at the root level to be easily queriable."
+    },
+    "/certificateTemplates/{certificateTemplateId}": {
+      "schema": {
+        "$ref": "#/entities/CertificateTemplate"
+      },
+      "description": "Stores certificate template designs."
+    }
   }
 }
-
-    
