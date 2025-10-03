@@ -1,95 +1,91 @@
 /**
- * @fileoverview Firestore Security Rules for EventChain System
+ * @fileoverview Firestore Security Rules for EventChain system.
  *
  * Core Philosophy:
- * This ruleset prioritizes public read access for events to facilitate discovery, while enforcing strict
- * authentication and authorization for data modification. All write operations require a valid user
- * to be signed in.
+ * This ruleset provides public read access to events and certificates, enabling easy listing and discovery.
+ * All write operations (create, update, delete) require authentication.
+ * The ruleset does not enforce strict validation and focuses on authorization and relational integrity.
  *
  * Data Structure:
- * - /events/{eventId}: Stores public event information.
- * - /participants/{participantId}: Stores participant registration details, accessible to authenticated users.
- * - /certificates/{certificateId}: Stores certificate data for events.
- * - /certificateTemplates/{certificateTemplateId}: Stores reusable certificate templates.
+ * - /events/{eventId}: Stores public event data.
+ * - /participants/{participantId}: Stores participant data.
+ * - /certificates/{certificateId}: Stores public certificate data.
+ * - /certificateTemplates/{certificateTemplateId}: Stores certificate templates.
  *
  * Key Security Decisions:
- * - Events are publicly readable, but writes are restricted.
- * - Only authenticated users can register as participants.
- * - Data validation is relaxed to allow for rapid prototyping but will be critical for production.
+ * - Events and Certificates are publicly readable.
+ * - All write operations require authentication.
+ * - No listing restrictions are applied to participants or certificate templates.
  *
- * Denormalization for Authorization:
- * - The rules do not denormalize data at this stage.
+ * Denormalization for Authorization: N/A (No denormalization is currently needed for these rules).
+ * Structural Segregation: N/A (No segregation currently needed).
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants public read access to event data and restricts write access to authenticated users only.
+     * @description Grants public read access to event data and authenticated-user-only write access.
      * @path /events/{eventId}
-     * @allow (get, list): Anyone can read event data.
+     * @allow (get, list): Any user can read event data.
      * @allow (create, update, delete): Only authenticated users can modify event data.
      * @deny (create, update, delete): Unauthenticated users cannot modify event data.
-     * @principle Allows public read access and restricts write access to authenticated users only.
+     * @principle Allows public read access while restricting write access to authenticated users.
      */
     match /events/{eventId} {
       allow get: if true;
       allow list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Allows authenticated users to create, read, update, and delete participant data.
+     * @description Grants authenticated-user-only access to participant data.
      * @path /participants/{participantId}
-     * @allow (create, get, list, update, delete): Only authenticated users can manage participant data.
-     * @deny (create, get, list, update, delete): Unauthenticated users cannot manage participant data.
-     * @principle Enforces access control for participant data to authenticated users only.
+     * @allow (create, get, list, update, delete): Only authenticated users can perform operations on participant data.
+     * @deny (create, get, list, update, delete): Unauthenticated users cannot perform operations on participant data.
+     * @principle Restricts all access to the participants collection to authenticated users.
      */
     match /participants/{participantId} {
-      allow create: if isSignedIn();
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Allows authenticated users to create, read, update, and delete certificate data.
+     * @description Grants public read access to certificate data and authenticated-user-only write access.
      * @path /certificates/{certificateId}
-     * @allow (create, get, list, update, delete): Only authenticated users can manage certificate data.
-     * @deny (create, get, list, update, delete): Unauthenticated users cannot manage certificate data.
-     * @principle Enforces access control for certificate data to authenticated users only.
+     * @allow (get, list): Any user can read certificate data.
+     * @allow (create, update, delete): Only authenticated users can modify certificate data.
+     * @deny (create, update, delete): Unauthenticated users cannot modify certificate data.
+     * @principle Allows public read access while restricting write access to authenticated users.
      */
     match /certificates/{certificateId} {
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn();
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Allows authenticated users to create, read, update, and delete certificate template data.
+     * @description Grants authenticated-user-only access to certificate template data.
      * @path /certificateTemplates/{certificateTemplateId}
-     * @allow (create, get, list, update, delete): Only authenticated users can manage certificate template data.
-     * @deny (create, get, list, update, delete): Unauthenticated users cannot manage certificate template data.
-     * @principle Enforces access control for certificate template data to authenticated users only.
+     * @allow (create, get, list, update, delete): Only authenticated users can perform operations on certificate template data.
+     * @deny (create, get, list, update, delete): Unauthenticated users cannot perform operations on certificate template data.
+     * @principle Restricts all access to the certificateTemplates collection to authenticated users.
      */
     match /certificateTemplates/{certificateTemplateId} {
-      allow create: if isSignedIn();
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
-    /**
-     * @description Defines the isSignedIn function, which returns true if the request is authenticated.
-     * @return {boolean} True if the request is authenticated, false otherwise.
-     * @principle Verifies user authentication.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
