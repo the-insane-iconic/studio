@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, writeBatch, doc } from 'firebase/firestore';
 import type { Participant, Event } from '@/lib/types';
-import { mockParticipants, mockEvents } from '@/lib/data'; // Keep for seeding
 
 const statusColors: {[key: string]: string} = {
   'Sent': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-300',
@@ -43,6 +42,29 @@ export default function ParticipantsView() {
     }, [participants]);
 
     const handleAddDemoData = async () => {
+        const mockEvents: Omit<Event, 'id'>[] = [
+          {
+            title: 'Web3 & Blockchain Summit 2024',
+            description: 'A deep dive into the future of decentralized technologies, with hands-on workshops and expert panels.',
+            date: '2024-09-15',
+            category: 'Tech',
+            participantCount: 128,
+          },
+          {
+            title: 'Future of Leadership Conference',
+            description: 'Explore modern leadership strategies and network with top executives from various industries.',
+            date: '2024-10-20',
+            category: 'Business',
+            participantCount: 256,
+          },
+        ];
+
+        const mockParticipants: Omit<Participant, 'id'>[] = [
+          { name: 'Alice Johnson', email: 'alice@example.com', phone: '123-456-7890', eventId: 'evt1', certificateStatus: 'Sent' },
+          { name: 'Bob Williams', email: 'bob@example.com', phone: '234-567-8901', eventId: 'evt1', certificateStatus: 'Sent' },
+          { name: 'Charlie Brown', email: 'charlie@example.com', phone: '345-678-9012', eventId: 'evt2', certificateStatus: 'Not Sent' },
+        ];
+        
         if (!firestore) {
             toast({
                 title: "Firestore not available",
@@ -53,15 +75,19 @@ export default function ParticipantsView() {
         }
         const batch = writeBatch(firestore);
 
-        mockEvents.forEach(event => {
-            const eventRef = doc(firestore, "events", event.id);
+        const eventIds: string[] = [];
+        mockEvents.forEach((event, index) => {
+            const newEventId = `evt${index + 1}`;
+            eventIds.push(newEventId);
+            const eventRef = doc(firestore, "events", newEventId);
             batch.set(eventRef, event);
         });
 
         mockParticipants.forEach(participant => {
-            // Use doc(collection(...)) to get a ref with an auto-generated ID
             const participantRef = doc(collection(firestore, "participants"));
-            batch.set(participantRef, participant);
+            // This ensures mock participants are associated with one of the newly created mock events.
+            const assignedEventId = participant.eventId === 'evt1' ? eventIds[0] : eventIds[1];
+            batch.set(participantRef, {...participant, eventId: assignedEventId});
         });
 
         try {
@@ -175,3 +201,5 @@ export default function ParticipantsView() {
         </div>
     );
 }
+
+    
