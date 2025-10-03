@@ -2,13 +2,15 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { Users, ArrowLeft, ArrowRight, Check, ChevronsUpDown, Mail, Send, CheckCircle, XCircle, Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Users, Check, Sparkles, Mail, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { certificateTemplates } from '@/lib/data';
 import { availableFields, CertificateTemplate as TemplateType, Event, Participant } from '@/lib/types';
 import AiSuggestion from './ai-suggestion';
@@ -69,6 +71,57 @@ function AiDesignGenerator({ event, onDesignGenerated }: { event: Event, onDesig
                 Generate Design
             </Button>
         </div>
+    );
+}
+
+function ConfirmationDialog({ participants, onConfirm, trigger }: { participants: Participant[], onConfirm: () => void, trigger: React.ReactNode }) {
+    const [open, setOpen] = useState(false);
+
+    const handleConfirm = () => {
+        onConfirm();
+        setOpen(false);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                {trigger}
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Confirm Certificate Generation</DialogTitle>
+                    <DialogDescription>
+                        You are about to generate and send certificates to the following {participants.length} participants. Please review the list before proceeding.
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-60 w-full rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {participants.map((participant) => (
+                                <TableRow key={participant.id}>
+                                    <TableCell className="font-medium">{participant.name}</TableCell>
+                                    <TableCell>{participant.email}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">Cancel</Button>
+                    </DialogClose>
+                    <Button type="button" onClick={handleConfirm}>
+                        Confirm &amp; Generate
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -161,6 +214,8 @@ export default function CertificatesView() {
         description: `${participantsForEvent.length} certificates have been queued for delivery.`,
     });
   };
+  
+  const isGenerateButtonDisabled = !formData.eventId || !formData.templateId || (formData.templateId === 'ai' && !formData.aiDesignUrl) || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0;
 
   return (
     <div className="space-y-8">
@@ -306,9 +361,15 @@ export default function CertificatesView() {
                      <h3 className="font-semibold text-lg">Generate & Track</h3>
                      <div className="text-center mt-4">
                         <p className="text-muted-foreground mb-4">You are about to generate and send certificates to {isLoadingParticipants ? '...' : (participantsForEvent?.length ?? 0)} participants.</p>
-                        <Button size="lg" onClick={handleGenerate} disabled={!formData.eventId || !formData.templateId || (formData.templateId === 'ai' && !formData.aiDesignUrl) || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0}>
-                            Generate Certificates
-                        </Button>
+                        <ConfirmationDialog
+                            participants={participantsForEvent || []}
+                            onConfirm={handleGenerate}
+                            trigger={
+                                <Button size="lg" disabled={isGenerateButtonDisabled}>
+                                    Generate Certificates
+                                </Button>
+                            }
+                        />
                     </div>
                 </div>
             </div>
@@ -316,4 +377,3 @@ export default function CertificatesView() {
     </div>
   );
 }
-
