@@ -206,4 +206,11 @@ export default function EventPage() {
                                 </CardContent>
                             </Card>
                         ) : (
-                           <Registration
+                           <RegistrationForm eventId={eventId} onSuccessfulRegistration={handleSuccess} />
+                        )}
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
