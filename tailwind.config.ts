@@ -13,6 +13,8 @@ export default {
       fontFamily: {
         body: ['Inter', 'sans-serif'],
         headline: ['Poppins', 'sans-serif'],
+        heading: ['"Playfair Display"', 'serif'],
+        signature: ['"Great Vibes"', 'cursive'],
       },
       colors: {
         background: 'hsl(var(--background))',

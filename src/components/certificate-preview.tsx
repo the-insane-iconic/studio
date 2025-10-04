@@ -25,7 +25,8 @@ const themeClasses = {
         outerBorder: 'border-blue-200 dark:border-blue-800',
         text: 'text-blue-900 dark:text-blue-200',
         accent: 'text-blue-700 dark:text-blue-300',
-        title: 'font-serif tracking-wide',
+        nameFont: 'font-signature',
+        headingFont: 'font-heading',
         seal: 'text-blue-500'
     },
     dark: {
@@ -34,7 +35,8 @@ const themeClasses = {
         outerBorder: 'border-gray-700',
         text: 'text-gray-200',
         accent: 'text-white',
-        title: 'font-sans font-thin uppercase tracking-widest',
+        nameFont: 'font-signature',
+        headingFont: 'font-heading',
         seal: 'text-gray-400'
     },
     green: {
@@ -43,7 +45,8 @@ const themeClasses = {
         outerBorder: 'border-green-200 dark:border-green-800',
         text: 'text-green-900 dark:text-green-200',
         accent: 'text-green-700 dark:text-green-400',
-        title: 'font-mono uppercase',
+        nameFont: 'font-signature',
+        headingFont: 'font-heading uppercase',
         seal: 'text-green-600'
     },
     pink: {
@@ -52,7 +55,8 @@ const themeClasses = {
         outerBorder: 'border-pink-200 dark:border-rose-800',
         text: 'text-pink-900 dark:text-pink-200',
         accent: 'text-pink-600 dark:text-pink-300',
-        title: 'font-serif italic',
+        nameFont: 'font-signature',
+        headingFont: 'font-heading italic',
         seal: 'text-pink-500'
     },
     ai: { // For AI Generated
@@ -61,7 +65,8 @@ const themeClasses = {
         outerBorder: 'border-white/20',
         text: 'text-white',
         accent: 'text-white',
-        title: 'font-serif tracking-wide',
+        nameFont: 'font-signature',
+        headingFont: 'font-heading',
         seal: 'text-white/80'
     }
 }
@@ -108,42 +113,44 @@ export default function CertificatePreview({ templateId, fields, aiDesignUrl, pr
             <img src={aiDesignUrl} alt="AI Generated Certificate Background" className="absolute inset-0 w-full h-full object-cover z-0" />
         )}
         {/* Adds a semi-transparent overlay for AI images to ensure text is readable */}
-        {template.id === 'ai' && <div className="absolute inset-0 bg-black/40 z-0"/>}
+        {template.id === 'ai' && <div className="absolute inset-0 bg-black/50 z-0"/>}
         
         <div className={cn(
-            "w-full h-full border rounded-md flex flex-col p-1 z-10", 
+            "w-full h-full border-2 rounded-md flex flex-col p-1 z-10", 
             theme.outerBorder
         )}>
             <div className={cn(
-                "w-full h-full border rounded-sm flex flex-col items-center justify-between p-4 text-center",
+                "w-full h-full border flex flex-col items-center justify-between p-4 text-center",
                 theme.border
             )}>
                 
                 <div className="w-full">
-                    <p className={cn("text-sm tracking-wider", theme.text)}>Certificate of Completion</p>
-                    <div className="w-2/3 h-[1px] mx-auto my-1 bg-current" style={{opacity: 0.5}} />
-                    <p className={cn("text-base font-semibold", theme.accent)}>This certificate is awarded to</p>
+                    <h1 className={cn("text-3xl font-bold tracking-wider", theme.accent, theme.headingFont)}>
+                        Certificate of Achievement
+                    </h1>
+                     <div className="w-2/3 h-[1px] mx-auto my-1 bg-current" style={{opacity: 0.3}} />
+                    <p className={cn("text-sm", theme.text)}>This certificate is proudly presented to</p>
                 </div>
 
                 <div className="my-2">
-                    <h2 className={cn("text-4xl font-bold", theme.accent, theme.title)}>
+                    <h2 className={cn("text-6xl", theme.accent, theme.nameFont)}>
                         {fields.includes('name') ? data.name : '...'}
                     </h2>
-                    <p className={cn("mt-1 text-sm max-w-xs", theme.text)}>
-                        For successfully completing the
-                    </p>
-                     <p className={cn("mt-1 text-lg font-bold", theme.accent)}>
-                        {fields.includes('eventName') ? data.eventName : '...'}
-                    </p>
                 </div>
                 
                 <div className="w-full text-xs">
-                     <p className={cn("", theme.text)}>
-                        on {fields.includes('date') ? data.date : '...'}
+                    <p className={cn("text-sm max-w-md mx-auto", theme.text)}>
+                        for their successful completion of the
+                         <span className={cn("font-bold text-base block", theme.accent)}>
+                            {fields.includes('eventName') ? data.eventName : '...'}
+                        </span>
+                    </p>
+                     <p className={cn("mt-2", theme.text)}>
+                        Issued on {fields.includes('date') ? data.date : '...'}
                     </p>
                     <div className="mt-4 flex justify-between items-end gap-4">
                         <div className="flex flex-col items-center gap-1 w-1/3">
-                            <p className={cn("border-b w-full text-center pb-1 font-semibold", theme.border)}>
+                            <p className={cn("border-b w-full text-center pb-1 font-semibold text-sm", theme.border, theme.text)}>
                                 {fields.includes('issuer') ? 'Issuer Name' : '...'}
                             </p>
                             <p className={cn("text-xs", theme.text)}>Event Issuer</p>
@@ -152,7 +159,7 @@ export default function CertificatePreview({ templateId, fields, aiDesignUrl, pr
                             <Medal className="w-12 h-12 mx-auto" />
                         </div>
                         <div className="flex flex-col items-center gap-1 w-1/3">
-                            <p className={cn("border-b w-full text-center pb-1 font-semibold", theme.border)}>
+                            <p className={cn("border-b w-full text-center pb-1 font-semibold text-sm", theme.border, theme.text)}>
                                  {fields.includes('signature') ? 'Digital Signature' : '...'}
                             </p>
                             <p className={cn("text-xs", theme.text)}>Signature</p>
@@ -174,5 +181,3 @@ export default function CertificatePreview({ templateId, fields, aiDesignUrl, pr
     </div>
   );
 }
-
-    
