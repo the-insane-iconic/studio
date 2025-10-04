@@ -64,39 +64,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 }) => {
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
     user: null,
-    isUserLoading: true, // Start loading until first auth event
+    isUserLoading: false, // Set to false to bypass auth loading
     userError: null,
   });
-
-  // Effect to subscribe to Firebase auth state changes
-  useEffect(() => {
-    if (!auth) { // If no Auth service instance, cannot determine user state
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
-      return;
-    }
-
-    setUserAuthState({ user: null, isUserLoading: true, userError: null }); // Reset on auth instance change
-
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (firebaseUser) => { // Auth state determined
-        if (firebaseUser) {
-          setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
-        } else {
-            // If no user, sign in anonymously
-            signInAnonymously(auth).catch((error) => {
-                 console.error("Anonymous sign-in failed:", error);
-                 setUserAuthState({ user: null, isUserLoading: false, userError: error });
-            });
-        }
-      },
-      (error) => { // Auth listener error
-        console.error("FirebaseProvider: onAuthStateChanged error:", error);
-        setUserAuthState({ user: null, isUserLoading: false, userError: error });
-      }
-    );
-    return () => unsubscribe(); // Cleanup
-  }, [auth]); // Depends on the auth instance
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {
@@ -111,22 +81,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       userError: userAuthState.userError,
     };
   }, [firebaseApp, firestore, auth, userAuthState]);
-
-  if (contextValue.isUserLoading) {
-    return (
-        <div className="flex h-screen w-screen items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-    );
-  }
-  
-  if (contextValue.userError) {
-      return (
-          <div className="flex h-screen w-screen items-center justify-center text-red-500">
-              <p>Authentication Error: {contextValue.userError.message}</p>
-          </div>
-      );
-  }
 
   return (
     <FirebaseContext.Provider value={contextValue}>
