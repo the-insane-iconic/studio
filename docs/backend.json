@@ -77,9 +77,9 @@
             "Failed"
           ]
         },
-        "registrationNumber": {
+        "collegeRegistrationNumber": {
           "type": "string",
-          "description": "A unique identifier for the participant's registration in an event."
+          "description": "A unique identifier for the participant, such as a college registration number."
         }
       },
       "required": [
@@ -87,7 +87,8 @@
         "email",
         "phone",
         "eventId",
-        "certificateStatus"
+        "certificateStatus",
+        "collegeRegistrationNumber"
       ]
     },
     "Certificate": {
@@ -208,5 +209,3 @@
     }
   }
 }
-
-    

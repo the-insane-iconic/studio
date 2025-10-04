@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc } from 'firebase/firestore';
 import type { Participant, Certificate, Event } from '@/lib/types';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +32,7 @@ export default function VerifyCertificatePage() {
     const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!registrationNumber) {
-            toast({ title: "Registration number required", description: "Please enter your registration number.", variant: "destructive" });
+            toast({ title: "Registration number required", description: "Please enter your college registration number.", variant: "destructive" });
             return;
         }
 
@@ -41,20 +41,25 @@ export default function VerifyCertificatePage() {
         setNoResult(false);
 
         try {
-            // 1. Find the participant by registrationNumber (which is the document ID)
-            const participantRef = doc(firestore, 'participants', registrationNumber);
-            const participantSnapshot = await getDoc(participantRef);
+            // 1. Find the participant by collegeRegistrationNumber and eventId
+            const participantsRef = collection(firestore, 'participants');
+            const pq = query(
+                participantsRef, 
+                where('collegeRegistrationNumber', '==', registrationNumber), 
+                where('eventId', '==', eventId), 
+                limit(1)
+            );
+            const participantSnapshot = await getDocs(pq);
 
-            if (!participantSnapshot.exists() || participantSnapshot.data().eventId !== eventId) {
+            if (participantSnapshot.empty) {
                 setNoResult(true);
                 setIsSearching(false);
                 return;
             }
 
-            const participant = participantSnapshot.data() as Participant;
-            const participantId = participantSnapshot.id;
+            const participantId = participantSnapshot.docs[0].id;
 
-            // 2. Find the certificate using the participant's ID
+            // 2. Find the certificate using the participant's document ID and event ID
             const certificatesRef = collection(firestore, 'certificates');
             const cq = query(certificatesRef, where('userId', '==', participantId), where('eventId', '==', eventId), limit(1));
             const certificateSnapshot = await getDocs(cq);
@@ -108,11 +113,11 @@ export default function VerifyCertificatePage() {
                     {!foundCertificate ? (
                         <form onSubmit={handleSearch} className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="registrationNumber">Your Registration Number</Label>
+                                <Label htmlFor="registrationNumber">Your College Registration Number</Label>
                                 <Input 
                                     id="registrationNumber" 
                                     type="text" 
-                                    placeholder="Enter the ID you were provided" 
+                                    placeholder="Enter your unique registration number" 
                                     value={registrationNumber}
                                     onChange={(e) => setRegistrationNumber(e.target.value)}
                                     required 

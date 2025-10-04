@@ -42,29 +42,6 @@ export default function ParticipantsView() {
     }, [participants]);
 
     const handleAddDemoData = async () => {
-        const mockEvents: Omit<Event, 'id'>[] = [
-          {
-            title: 'Web3 & Blockchain Summit 2024',
-            description: 'A deep dive into the future of decentralized technologies, with hands-on workshops and expert panels.',
-            date: '2024-09-15',
-            category: 'Tech',
-            participantCount: 128,
-          },
-          {
-            title: 'Future of Leadership Conference',
-            description: 'Explore modern leadership strategies and network with top executives from various industries.',
-            date: '2024-10-20',
-            category: 'Business',
-            participantCount: 256,
-          },
-        ];
-
-        const mockParticipants: Omit<Participant, 'id' | 'registrationNumber'>[] = [
-          { name: 'Alice Johnson', email: 'alice@example.com', phone: '123-456-7890', eventId: 'evt1', certificateStatus: 'Sent' },
-          { name: 'Bob Williams', email: 'bob@example.com', phone: '234-567-8901', eventId: 'evt1', certificateStatus: 'Sent' },
-          { name: 'Charlie Brown', email: 'charlie@example.com', phone: '345-678-9012', eventId: 'evt2', certificateStatus: 'Not Sent' },
-        ];
-        
         if (!firestore) {
             toast({
                 title: "Firestore not available",
@@ -73,20 +50,28 @@ export default function ParticipantsView() {
             });
             return;
         }
+
         const batch = writeBatch(firestore);
 
-        const eventIds: string[] = [];
-        mockEvents.forEach((event, index) => {
-            const newEventId = `evt${index + 1}`;
-            eventIds.push(newEventId);
-            const eventRef = doc(firestore, "events", newEventId);
-            batch.set(eventRef, event);
+        // Mock Events
+        const eventsData = [
+            { id: 'evt1', data: { title: 'Web3 & Blockchain Summit 2024', description: 'A deep dive into decentralization.', date: '2024-09-15', category: 'Tech', participantCount: 2 } },
+            { id: 'evt2', data: { title: 'Future of Leadership Conference', description: 'Exploring modern leadership strategies.', date: '2024-10-20', category: 'Business', participantCount: 1 } },
+        ];
+        eventsData.forEach(event => {
+            const eventRef = doc(firestore, "events", event.id);
+            batch.set(eventRef, event.data);
         });
-
-        mockParticipants.forEach(participant => {
+        
+        // Mock Participants
+        const participantsData = [
+            { data: { name: 'Alice Johnson', email: 'alice@example.com', phone: '123-456-7890', eventId: 'evt1', certificateStatus: 'Sent', collegeRegistrationNumber: 'C001' } },
+            { data: { name: 'Bob Williams', email: 'bob@example.com', phone: '234-567-8901', eventId: 'evt1', certificateStatus: 'Sent', collegeRegistrationNumber: 'C002' } },
+            { data: { name: 'Charlie Brown', email: 'charlie@example.com', phone: '345-678-9012', eventId: 'evt2', certificateStatus: 'Not Sent', collegeRegistrationNumber: 'C003' } },
+        ];
+        participantsData.forEach(p => {
             const participantRef = doc(collection(firestore, "participants"));
-            const assignedEventId = participant.eventId === 'evt1' ? eventIds[0] : eventIds[1];
-            batch.set(participantRef, {...participant, eventId: assignedEventId, registrationNumber: participantRef.id});
+            batch.set(participantRef, p.data);
         });
 
         try {
@@ -157,7 +142,7 @@ export default function ParticipantsView() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Name</TableHead>
-                                    <TableHead className="hidden sm:table-cell">Registration ID</TableHead>
+                                    <TableHead className="hidden sm:table-cell">College Reg. No.</TableHead>
                                     <TableHead className="hidden md:table-cell">Email</TableHead>
                                     <TableHead>Event</TableHead>
                                     <TableHead className="text-right">Certificate Status</TableHead>
@@ -184,7 +169,7 @@ export default function ParticipantsView() {
                                             <div className="font-medium">{participant.name}</div>
                                             <div className="text-sm text-muted-foreground md:hidden">{participant.email}</div>
                                         </TableCell>
-                                        <TableCell className="hidden sm:table-cell font-mono text-xs">{participant.id}</TableCell>
+                                        <TableCell className="hidden sm:table-cell font-mono text-xs">{participant.collegeRegistrationNumber}</TableCell>
                                         <TableCell className="hidden md:table-cell">{participant.email}</TableCell>
                                         <TableCell>{eventsMap.get(participant.eventId) || 'Unknown Event'}</TableCell>
                                         <TableCell className="text-right">
@@ -202,5 +187,3 @@ export default function ParticipantsView() {
         </div>
     );
 }
-
-    

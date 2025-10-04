@@ -57,16 +57,17 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
             name: participantName,
             email: formData.get('email') as string,
             phone: formData.get('phone') as string,
+            collegeRegistrationNumber: formData.get('collegeRegistrationNumber') as string,
             organization: formData.get('organization') as string || '',
             jobTitle: formData.get('jobTitle') as string || '',
             eventId,
             certificateStatus: 'Not Sent',
         };
 
-        if (!participantData.name || !participantData.email || !participantData.phone) {
+        if (!participantData.name || !participantData.email || !participantData.phone || !participantData.collegeRegistrationNumber) {
             toast({
                 title: 'Error',
-                description: 'Please fill out name, email, and phone.',
+                description: 'Please fill out all required fields.',
                 variant: 'destructive',
             });
             setIsSubmitting(false);
@@ -76,16 +77,23 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
         const eventRef = doc(firestore, 'events', eventId);
         
         try {
-            let newParticipantId = '';
             await runTransaction(firestore, async (transaction) => {
                 const eventDoc = await transaction.get(eventRef);
                 if (!eventDoc.exists()) {
                     throw new Error("Event does not exist!");
                 }
 
+                // Check for uniqueness of collegeRegistrationNumber within the same event
+                const participantsRef = collection(firestore, 'participants');
+                const q = query(participantsRef, where('eventId', '==', eventId), where('collegeRegistrationNumber', '==', participantData.collegeRegistrationNumber));
+                const existingParticipant = await getDocs(q);
+
+                if (!existingParticipant.empty) {
+                    throw new Error(`A participant with registration number ${participantData.collegeRegistrationNumber} already exists for this event.`);
+                }
+
                 const newParticipantRef = doc(collection(firestore, 'participants'));
-                newParticipantId = newParticipantRef.id;
-                transaction.set(newParticipantRef, { ...participantData, registrationNumber: newParticipantId });
+                transaction.set(newParticipantRef, participantData);
                 
                 const newCount = (eventDoc.data().participantCount || 0) + 1;
                 transaction.update(eventRef, { participantCount: newCount });
@@ -93,26 +101,18 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
             
             toast({
                 title: 'Participant Added!',
-                description: `${participantData.name} has been registered. Their ID is ${newParticipantId}`,
+                description: `${participantData.name} has been registered successfully.`,
             });
             setParticipantName('');
             (e.target as HTMLFormElement).reset();
             setOpen(false);
 
-        } catch (error) {
+        } catch (error: any) {
              toast({
                 title: 'Registration Failed',
-                description: 'The new participant could not be added. Please try again.',
+                description: error.message || 'The new participant could not be added. Please try again.',
                 variant: 'destructive',
             });
-
-            // This creates the detailed, contextual error and emits it globally.
-            const permissionError = new FirestorePermissionError({
-              path: eventRef.path, // The resource being acted on
-              operation: 'update',  // The operation that likely failed
-              requestResourceData: { participantCount: 'increment(1)' } // The intended change
-            });
-            errorEmitter.emit('permission-error', permissionError);
 
         } finally {
             setIsSubmitting(false);
@@ -152,6 +152,10 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="phone" className="text-right">Phone</Label>
                         <Input id="phone" name="phone" type="tel" className="col-span-3" required />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="collegeRegistrationNumber" className="text-right">College Reg. No.</Label>
+                        <Input id="collegeRegistrationNumber" name="collegeRegistrationNumber" className="col-span-3" required />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="organization" className="text-right">Organization</Label>
@@ -292,7 +296,7 @@ export default function EventPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Name</TableHead>
-                                        <TableHead className="hidden sm:table-cell">Registration ID</TableHead>
+                                        <TableHead className="hidden sm:table-cell">College Reg. No.</TableHead>
                                         <TableHead className="hidden md:table-cell">Email</TableHead>
                                         <TableHead className="hidden lg:table-cell">Organization</TableHead>
                                         <TableHead className="text-right">Certificate Status</TableHead>
@@ -319,7 +323,7 @@ export default function EventPage() {
                                                 <div className="font-medium">{participant.name}</div>
                                                 <div className="text-sm text-muted-foreground md:hidden">{participant.email}</div>
                                             </TableCell>
-                                            <TableCell className="hidden sm:table-cell font-mono text-xs">{participant.id}</TableCell>
+                                            <TableCell className="hidden sm:table-cell font-mono text-xs">{participant.collegeRegistrationNumber}</TableCell>
                                             <TableCell className="hidden md:table-cell">{participant.email}</TableCell>
                                             <TableCell className="hidden lg:table-cell">{participant.organization || 'N/A'}</TableCell>
                                             <TableCell className="text-right">
