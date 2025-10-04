@@ -59,7 +59,7 @@ export default function ParticipantsView() {
           },
         ];
 
-        const mockParticipants: Omit<Participant, 'id'>[] = [
+        const mockParticipants: Omit<Participant, 'id' | 'registrationNumber'>[] = [
           { name: 'Alice Johnson', email: 'alice@example.com', phone: '123-456-7890', eventId: 'evt1', certificateStatus: 'Sent' },
           { name: 'Bob Williams', email: 'bob@example.com', phone: '234-567-8901', eventId: 'evt1', certificateStatus: 'Sent' },
           { name: 'Charlie Brown', email: 'charlie@example.com', phone: '345-678-9012', eventId: 'evt2', certificateStatus: 'Not Sent' },
@@ -85,9 +85,8 @@ export default function ParticipantsView() {
 
         mockParticipants.forEach(participant => {
             const participantRef = doc(collection(firestore, "participants"));
-            // This ensures mock participants are associated with one of the newly created mock events.
             const assignedEventId = participant.eventId === 'evt1' ? eventIds[0] : eventIds[1];
-            batch.set(participantRef, {...participant, eventId: assignedEventId});
+            batch.set(participantRef, {...participant, eventId: assignedEventId, registrationNumber: participantRef.id});
         });
 
         try {
@@ -158,6 +157,7 @@ export default function ParticipantsView() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Name</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Registration ID</TableHead>
                                     <TableHead className="hidden md:table-cell">Email</TableHead>
                                     <TableHead>Event</TableHead>
                                     <TableHead className="text-right">Certificate Status</TableHead>
@@ -166,14 +166,14 @@ export default function ParticipantsView() {
                             <TableBody>
                                 {isLoading && (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary"/>
                                         </TableCell>
                                     </TableRow>
                                 )}
                                 {!isLoading && (!participants || participants.length === 0) && (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             No participants found. Add some mock data to get started.
                                         </TableCell>
                                     </TableRow>
@@ -184,6 +184,7 @@ export default function ParticipantsView() {
                                             <div className="font-medium">{participant.name}</div>
                                             <div className="text-sm text-muted-foreground md:hidden">{participant.email}</div>
                                         </TableCell>
+                                        <TableCell className="hidden sm:table-cell font-mono text-xs">{participant.id}</TableCell>
                                         <TableCell className="hidden md:table-cell">{participant.email}</TableCell>
                                         <TableCell>{eventsMap.get(participant.eventId) || 'Unknown Event'}</TableCell>
                                         <TableCell className="text-right">

@@ -17,6 +17,7 @@ export type Participant = {
   jobTitle?: string;
   eventId: string;
   certificateStatus: 'Not Sent' | 'Sent' | 'Failed';
+  registrationNumber?: string;
 };
 
 export type Certificate = {
@@ -50,3 +51,5 @@ export const availableFields = [
   { id: 'duration', label: 'Event Duration', required: false },
   { id: 'signature', label: 'Digital Signature', required: false },
 ];
+
+    

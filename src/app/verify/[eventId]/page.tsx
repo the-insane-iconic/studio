@@ -4,10 +4,9 @@
 import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
 import type { Participant, Certificate, Event } from '@/lib/types';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +21,7 @@ export default function VerifyCertificatePage() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const [email, setEmail] = useState('');
+    const [registrationNumber, setRegistrationNumber] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [foundCertificate, setFoundCertificate] = useState<Certificate | null>(null);
     const [noResult, setNoResult] = useState(false);
@@ -32,8 +31,8 @@ export default function VerifyCertificatePage() {
 
     const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!email) {
-            toast({ title: "Email required", description: "Please enter your email address.", variant: "destructive" });
+        if (!registrationNumber) {
+            toast({ title: "Registration number required", description: "Please enter your registration number.", variant: "destructive" });
             return;
         }
 
@@ -42,19 +41,18 @@ export default function VerifyCertificatePage() {
         setNoResult(false);
 
         try {
-            // 1. Find the participant by email and eventId
-            const participantsRef = collection(firestore, 'participants');
-            const pq = query(participantsRef, where('eventId', '==', eventId), where('email', '==', email), limit(1));
-            const participantSnapshot = await getDocs(pq);
+            // 1. Find the participant by registrationNumber (which is the document ID)
+            const participantRef = doc(firestore, 'participants', registrationNumber);
+            const participantSnapshot = await getDoc(participantRef);
 
-            if (participantSnapshot.empty) {
+            if (!participantSnapshot.exists() || participantSnapshot.data().eventId !== eventId) {
                 setNoResult(true);
                 setIsSearching(false);
                 return;
             }
 
-            const participant = participantSnapshot.docs[0].data() as Participant;
-            const participantId = participantSnapshot.docs[0].id;
+            const participant = participantSnapshot.data() as Participant;
+            const participantId = participantSnapshot.id;
 
             // 2. Find the certificate using the participant's ID
             const certificatesRef = collection(firestore, 'certificates');
@@ -80,7 +78,6 @@ export default function VerifyCertificatePage() {
         }
     };
     
-    // This is a placeholder for a real download function
     const handleDownload = () => {
         if (foundCertificate?.designDataUrl) {
             const link = document.createElement('a');
@@ -111,13 +108,13 @@ export default function VerifyCertificatePage() {
                     {!foundCertificate ? (
                         <form onSubmit={handleSearch} className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="email">Your Email Address</Label>
+                                <Label htmlFor="registrationNumber">Your Registration Number</Label>
                                 <Input 
-                                    id="email" 
-                                    type="email" 
-                                    placeholder="Enter the email you registered with" 
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    id="registrationNumber" 
+                                    type="text" 
+                                    placeholder="Enter the ID you were provided" 
+                                    value={registrationNumber}
+                                    onChange={(e) => setRegistrationNumber(e.target.value)}
                                     required 
                                 />
                             </div>
@@ -132,8 +129,8 @@ export default function VerifyCertificatePage() {
                          <div className="text-center text-muted-foreground p-8 border-dashed border-2 rounded-lg">
                             <AlertCircle className="mx-auto h-12 w-12 text-destructive"/>
                             <h3 className="mt-4 text-lg font-semibold">No Certificate Found</h3>
-                            <p className="mt-2 text-sm">We couldn't find a certificate for this event with that email address. Please check for typos or contact the event organizer.</p>
-                            <Button variant="link" onClick={() => { setNoResult(false); setEmail('')}}>Try Again</Button>
+                            <p className="mt-2 text-sm">We couldn't find a certificate for this event with that registration number. Please check for typos or contact the event organizer.</p>
+                            <Button variant="link" onClick={() => { setNoResult(false); setRegistrationNumber('')}}>Try Again</Button>
                         </div>
                     )}
                     
@@ -154,7 +151,7 @@ export default function VerifyCertificatePage() {
                                 <Download className="mr-2 h-4 w-4"/>
                                 Download Certificate Image
                             </Button>
-                            <Button variant="outline" className="w-full" onClick={() => { setFoundCertificate(null); setEmail('')}}>
+                            <Button variant="outline" className="w-full" onClick={() => { setFoundCertificate(null); setRegistrationNumber('')}}>
                                 Verify another certificate
                             </Button>
                         </div>
@@ -165,3 +162,5 @@ export default function VerifyCertificatePage() {
         </div>
     );
 }
+
+    

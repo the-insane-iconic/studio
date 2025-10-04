@@ -59,6 +59,7 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
         const eventRef = doc(firestore, 'events', eventId);
         
         try {
+            let newParticipantId = '';
             await runTransaction(firestore, async (transaction) => {
                 const eventDoc = await transaction.get(eventRef);
                 if (!eventDoc.exists()) {
@@ -66,7 +67,8 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
                 }
 
                 const newParticipantRef = doc(collection(firestore, 'participants'));
-                transaction.set(newParticipantRef, participantData);
+                newParticipantId = newParticipantRef.id;
+                transaction.set(newParticipantRef, { ...participantData, registrationNumber: newParticipantId });
                 
                 const newCount = (eventDoc.data().participantCount || 0) + 1;
                 transaction.update(eventRef, { participantCount: newCount });
@@ -74,7 +76,7 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
             
             toast({
                 title: 'Participant Added!',
-                description: `${participantData.name} has been registered for the event.`,
+                description: `${participantData.name} has been registered. Their ID is ${newParticipantId}`,
             });
             (e.target as HTMLFormElement).reset();
             setOpen(false);
@@ -164,7 +166,7 @@ function GenerateQrCodeDialog({ eventId }: { eventId: string }) {
                 <DialogHeader>
                     <DialogTitle>Certificate Verification</DialogTitle>
                     <DialogDescription>
-                        Share this QR code with participants. Scanning it will take them to a page where they can enter their email to download their certificate.
+                        Share this QR code with participants. Scanning it will take them to a page where they can enter their registration ID to download their certificate.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex items-center justify-center p-4 bg-white rounded-lg">
@@ -264,6 +266,7 @@ export default function EventPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Name</TableHead>
+                                        <TableHead className="hidden sm:table-cell">Registration ID</TableHead>
                                         <TableHead className="hidden md:table-cell">Email</TableHead>
                                         <TableHead className="hidden lg:table-cell">Organization</TableHead>
                                         <TableHead className="text-right">Certificate Status</TableHead>
@@ -272,14 +275,14 @@ export default function EventPage() {
                                 <TableBody>
                                     {isLoadingParticipants && (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">
+                                            <TableCell colSpan={5} className="h-24 text-center">
                                                 <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary"/>
                                             </TableCell>
                                         </TableRow>
                                     )}
                                     {!isLoadingParticipants && (!participants || participants.length === 0) && (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">
+                                            <TableCell colSpan={5} className="h-24 text-center">
                                                 No participants found for this event yet.
                                             </TableCell>
                                         </TableRow>
@@ -290,6 +293,7 @@ export default function EventPage() {
                                                 <div className="font-medium">{participant.name}</div>
                                                 <div className="text-sm text-muted-foreground md:hidden">{participant.email}</div>
                                             </TableCell>
+                                            <TableCell className="hidden sm:table-cell font-mono text-xs">{participant.id}</TableCell>
                                             <TableCell className="hidden md:table-cell">{participant.email}</TableCell>
                                             <TableCell className="hidden lg:table-cell">{participant.organization || 'N/A'}</TableCell>
                                             <TableCell className="text-right">
@@ -308,3 +312,5 @@ export default function EventPage() {
         </div>
     );
 }
+
+    

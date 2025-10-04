@@ -76,6 +76,10 @@
             "Sent",
             "Failed"
           ]
+        },
+        "registrationNumber": {
+          "type": "string",
+          "description": "A unique identifier for the participant's registration in an event."
         }
       },
       "required": [
@@ -204,3 +208,5 @@
     }
   }
 }
+
+    
