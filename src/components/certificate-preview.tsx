@@ -11,6 +11,11 @@ interface CertificatePreviewProps {
   templateId: CertificateTemplate['id'] | '';
   fields: string[];
   aiDesignUrl?: string | null;
+  previewData?: {
+    name: string;
+    eventName: string;
+    date: string;
+  }
 }
 
 const themeClasses = {
@@ -72,8 +77,15 @@ const FieldIcon = ({ fieldId }: { fieldId: string }) => {
     return icons[fieldId] || null;
 }
 
-export default function CertificatePreview({ templateId, fields, aiDesignUrl }: CertificatePreviewProps) {
+const defaultPreviewData = {
+    name: 'Participant Name',
+    eventName: 'Event Name',
+    date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+};
+
+export default function CertificatePreview({ templateId, fields, aiDesignUrl, previewData }: CertificatePreviewProps) {
   const template = certificateTemplates.find(t => t.id === templateId);
+  const data = previewData || defaultPreviewData;
 
   if (!template) {
     return (
@@ -115,19 +127,19 @@ export default function CertificatePreview({ templateId, fields, aiDesignUrl }: 
 
                 <div className="my-2">
                     <h2 className={cn("text-4xl font-bold", theme.accent, theme.title)}>
-                        {fields.includes('name') ? 'Participant Name' : '...'}
+                        {fields.includes('name') ? data.name : '...'}
                     </h2>
                     <p className={cn("mt-1 text-sm max-w-xs", theme.text)}>
                         For successfully completing the
                     </p>
                      <p className={cn("mt-1 text-lg font-bold", theme.accent)}>
-                        {fields.includes('eventName') ? 'Event Name' : '...'}
+                        {fields.includes('eventName') ? data.eventName : '...'}
                     </p>
                 </div>
                 
                 <div className="w-full text-xs">
                      <p className={cn("", theme.text)}>
-                        on {fields.includes('date') ? new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '...'}
+                        on {fields.includes('date') ? data.date : '...'}
                     </p>
                     <div className="mt-4 flex justify-between items-end gap-4">
                         <div className="flex flex-col items-center gap-1 w-1/3">
@@ -162,3 +174,5 @@ export default function CertificatePreview({ templateId, fields, aiDesignUrl }: 
     </div>
   );
 }
+
+    

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef } from 'react';
-import { Users, Check, Sparkles, Mail, Send, Loader2 } from 'lucide-react';
+import { Users, Check, Sparkles, Mail, Send, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +22,7 @@ import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/no
 import { generateCertificateDesign } from '@/ai/flows/generate-certificate-design';
 import { sendCertificateEmail } from '@/ai/flows/send-certificate-email';
 import { toPng } from 'html-to-image';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 
 type FormData = {
@@ -140,6 +141,7 @@ export default function CertificatesView() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const certificatePreviewRef = useRef<HTMLDivElement>(null);
+  const [previewParticipant, setPreviewParticipant] = useState<Participant | null>(null);
 
   const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
   const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
@@ -150,6 +152,15 @@ export default function CertificatesView() {
     formData.eventId ? query(collection(firestore, 'participants'), where('eventId', '==', formData.eventId)) : null
   , [firestore, formData.eventId]);
   const { data: participantsForEvent, isLoading: isLoadingParticipants } = useCollection<Participant>(participantsQuery);
+  
+  // Update preview participant when event changes or participants load
+  useEffect(() => {
+    if (participantsForEvent && participantsForEvent.length > 0) {
+        setPreviewParticipant(participantsForEvent[0]);
+    } else {
+        setPreviewParticipant(null);
+    }
+  }, [participantsForEvent]);
 
 
   const handleFieldChange = (fieldId: string, checked: boolean) => {
@@ -242,6 +253,12 @@ export default function CertificatesView() {
   
   const isGenerateButtonDisabled = !formData.eventId || !formData.templateId || (formData.templateId === 'ai' && !formData.aiDesignUrl) || formData.deliveryMethods.length === 0 || isLoadingParticipants || (participantsForEvent?.length ?? 0) === 0;
 
+  const previewData = useMemo(() => ({
+    name: previewParticipant?.name || 'Participant Name',
+    eventName: selectedEvent?.title || 'Event Name',
+    date: selectedEvent?.date ? new Date(selectedEvent.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+  }), [previewParticipant, selectedEvent]);
+  
   return (
     <div className="space-y-8">
         <div className="p-8 rounded-lg bg-gradient-to-r from-primary to-accent text-primary-foreground">
@@ -255,7 +272,7 @@ export default function CertificatesView() {
                 <div className="w-full">
                     <h3 className="font-semibold text-lg">Select Event & Participants</h3>
                      <div className="space-y-4 mt-4">
-                        <Select onValueChange={(value) => setFormData(prev => ({ ...prev, eventId: value }))} value={formData.eventId}>
+                        <Select onValueChange={(value) => setFormData(prev => ({ ...prev, eventId: value, templateId: '', aiDesignUrl: null }))} value={formData.eventId}>
                           <SelectTrigger>
                             <SelectValue placeholder="Choose an event..." />
                           </SelectTrigger>
@@ -336,9 +353,42 @@ export default function CertificatesView() {
                             </div>
                         </div>
                         <div>
-                            <h4 className="font-semibold mb-4 text-muted-foreground">Live Preview</h4>
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-semibold text-muted-foreground">Live Preview</h4>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" disabled={!previewParticipant}>
+                                            {previewParticipant ? `Previewing: ${previewParticipant.name}` : 'No Participants'}
+                                            <ChevronDown className="ml-2 h-4 w-4"/>
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-56 p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search participant..." />
+                                            <CommandEmpty>No participants found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {participantsForEvent?.slice(0, 5).map(p => (
+                                                    <CommandItem
+                                                        key={p.id}
+                                                        value={p.name}
+                                                        onSelect={() => setPreviewParticipant(p)}
+                                                    >
+                                                        {p.name}
+                                                        <Check className={`ml-auto h-4 w-4 ${previewParticipant?.id === p.id ? "opacity-100" : "opacity-0"}`} />
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                              <div ref={certificatePreviewRef}>
-                                <CertificatePreview templateId={formData.templateId} fields={formData.customFields} aiDesignUrl={formData.aiDesignUrl} />
+                                <CertificatePreview 
+                                    templateId={formData.templateId} 
+                                    fields={formData.customFields} 
+                                    aiDesignUrl={formData.aiDesignUrl}
+                                    previewData={previewData}
+                                />
                             </div>
                         </div>
                     </div>
@@ -404,3 +454,5 @@ export default function CertificatesView() {
     </div>
   );
 }
+
+    
