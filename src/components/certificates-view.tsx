@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Users, Check, Sparkles, Mail, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { generateCertificateDesign } from '@/ai/flows/generate-certificate-design';
 import { sendCertificateEmail } from '@/ai/flows/send-certificate-email';
+import { toPng } from 'html-to-image';
 
 
 type FormData = {
@@ -138,6 +139,7 @@ export default function CertificatesView() {
   
   const firestore = useFirestore();
   const { toast } = useToast();
+  const certificatePreviewRef = useRef<HTMLDivElement>(null);
 
   const eventsQuery = useMemoFirebase(() => collection(firestore, 'events'), [firestore]);
   const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
@@ -164,21 +166,41 @@ export default function CertificatesView() {
     }));
   };
 
-  const handleGenerate = () => {
+  const getCertificateImageData = async (): Promise<string | undefined> => {
+    if (!certificatePreviewRef.current) return undefined;
+    try {
+        return await toPng(certificatePreviewRef.current, { cacheBust: true });
+    } catch (err) {
+        console.error('Failed to convert component to image', err);
+        toast({
+            title: "Certificate Error",
+            description: "Could not generate certificate image.",
+            variant: "destructive",
+        });
+        return undefined;
+    }
+  };
+
+  const handleGenerate = async () => {
     if (!firestore || !participantsForEvent || participantsForEvent.length === 0 || !selectedEvent) {
       toast({ title: 'No participants to process or event not selected', variant: 'destructive' });
       return;
     }
-
+    
     toast({
         title: 'Processing Started!',
         description: `${participantsForEvent.length} certificates are being generated in the background.`,
     });
 
+    const finalCertificateImage = await getCertificateImageData();
+    if (!finalCertificateImage) {
+        return; // Stop if image generation failed
+    }
+
     const certificatesCollection = collection(firestore, 'certificates');
     
     participantsForEvent.forEach(participant => {
-        addDocumentNonBlocking(certificatesCollection, {
+        const certificateData = {
             eventId: formData.eventId,
             userId: participant.id,
             participantName: participant.name,
@@ -187,8 +209,10 @@ export default function CertificatesView() {
             web3Hash: `0x${[...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
             deliveryMethod: formData.deliveryMethods.join(', '),
             deliveryStatus: 'Sent',
-            designDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl : null,
-        });
+            designDataUrl: finalCertificateImage,
+        };
+
+        addDocumentNonBlocking(certificatesCollection, certificateData);
 
         const participantRef = doc(firestore, 'participants', participant.id);
         updateDocumentNonBlocking(participantRef, { certificateStatus: 'Sent' });
@@ -198,7 +222,7 @@ export default function CertificatesView() {
                 recipientEmail: participant.email,
                 recipientName: participant.name,
                 eventName: selectedEvent.title,
-                certificateDataUrl: formData.templateId === 'ai' ? formData.aiDesignUrl ?? undefined : undefined,
+                certificateDataUrl: finalCertificateImage,
              }).then(result => {
                 if (result.success) {
                     console.log(`Email flow triggered for ${participant.email}`);
@@ -313,7 +337,9 @@ export default function CertificatesView() {
                         </div>
                         <div>
                             <h4 className="font-semibold mb-4 text-muted-foreground">Live Preview</h4>
-                            <CertificatePreview templateId={formData.templateId} fields={formData.customFields} aiDesignUrl={formData.aiDesignUrl} />
+                             <div ref={certificatePreviewRef}>
+                                <CertificatePreview templateId={formData.templateId} fields={formData.customFields} aiDesignUrl={formData.aiDesignUrl} />
+                            </div>
                         </div>
                     </div>
                  </div>
