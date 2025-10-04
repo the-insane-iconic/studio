@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, collection, runTransaction, addDoc, query, where } from 'firebase/firestore';
+import { doc, collection, runTransaction, addDoc, query, where, getDocs } from 'firebase/firestore';
 import type { Event, Participant } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -342,3 +342,5 @@ export default function EventPage() {
         </div>
     );
 }
+
+    
