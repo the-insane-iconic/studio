@@ -28,6 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body
+        suppressHydrationWarning={true}
         className={cn(
           'h-full font-body antialiased',
           'bg-background text-foreground'
