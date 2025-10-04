@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import QRCode from "react-qr-code";
+import { cleanName } from '@/ai/flows/clean-name';
 
 const statusColors: {[key: string]: string} = {
   'Sent': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 border-green-300',
@@ -29,15 +30,31 @@ const statusColors: {[key: string]: string} = {
 function AddParticipantDialog({ eventId }: { eventId: string }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
+    const [participantName, setParticipantName] = useState('');
     const firestore = useFirestore();
     const { toast } = useToast();
+
+    const handleNameBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+        const currentName = e.target.value;
+        if (currentName.trim().length > 2) { // Only clean if there's a reasonable name
+            try {
+                const result = await cleanName({ name: currentName });
+                if (result.cleanedName) {
+                    setParticipantName(result.cleanedName);
+                }
+            } catch (error) {
+                console.error("Name cleaning failed:", error);
+                // Don't bother the user with a toast for this, just log it.
+            }
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsSubmitting(true);
         const formData = new FormData(e.currentTarget);
         const participantData: Omit<Participant, 'id'> = {
-            name: formData.get('name') as string,
+            name: participantName,
             email: formData.get('email') as string,
             phone: formData.get('phone') as string,
             organization: formData.get('organization') as string || '',
@@ -78,6 +95,7 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
                 title: 'Participant Added!',
                 description: `${participantData.name} has been registered. Their ID is ${newParticipantId}`,
             });
+            setParticipantName('');
             (e.target as HTMLFormElement).reset();
             setOpen(false);
 
@@ -112,12 +130,20 @@ function AddParticipantDialog({ eventId }: { eventId: string }) {
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Add New Participant</DialogTitle>
-                    <DialogDescription>Fill in the details for the new participant.</DialogDescription>
+                    <DialogDescription>Fill in the details for the new participant. Name will be auto-capitalized.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input id="name" name="name" className="col-span-3" required />
+                        <Input 
+                            id="name" 
+                            name="name" 
+                            className="col-span-3" 
+                            required 
+                            value={participantName}
+                            onChange={(e) => setParticipantName(e.target.value)}
+                            onBlur={handleNameBlur}
+                        />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="email" className="text-right">Email</Label>

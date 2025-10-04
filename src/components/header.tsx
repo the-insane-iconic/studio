@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Award, Calendar, Users, Home, Settings } from 'lucide-react';
+import { Award, Calendar, Users, Home, Settings, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -16,6 +16,7 @@ import {
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { useTheme } from "next-themes"
 
 const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -27,6 +28,7 @@ const navLinks = [
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const { setTheme, theme } = useTheme();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-sm">
@@ -58,6 +60,17 @@ export default function Header() {
           <Button onClick={() => router.push('/events/new')} className="hidden sm:inline-flex">
             + Create Event
           </Button>
+
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            aria-label="Toggle theme"
+          >
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </Button>
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Avatar className="h-9 w-9 cursor-pointer">
