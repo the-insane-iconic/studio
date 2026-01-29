@@ -87,5 +87,6 @@ The AI features (like certificate design and email sending) are powered by Genki
 ```bash
 npm run genkit:dev
 ```
+aye what???
 
 This will start the Genkit development UI, typically on `http://localhost:4000`, where you can monitor and test your AI flows.
