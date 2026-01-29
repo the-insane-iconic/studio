@@ -14,7 +14,7 @@ EventChain Pro is a comprehensive, modern web application designed to streamline
 
 - **AI-Powered Design & Suggestions**:
     - **AI Background Generation**: Create unique, professional certificate backgrounds from a simple text prompt using generative AI.
-    - **AI Template Suggestions**: Get intelligent recommendations for certificate templates based on event details.
+    - **AI Template Suggestions*ations for certificate templates based on event details.
 
 - **5-Step Certificate Workflow**: An intuitive, step-by-step process to generate and distribute certificates efficiently, from event selection to final delivery.
 
